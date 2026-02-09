@@ -179,6 +179,9 @@ type logEntry struct {
 	Message   string `json:"message"`
 	AgentName string `json:"agent_name"`
 	AgentType string `json:"agent_type"`
+	Call      string `json:"call"`
+	Reason    string `json:"reason"`
+	WaitMs    int64  `json:"wait_ms"`
 }
 
 func (w *logWriter) Write(p []byte) (n int, err error) {
@@ -237,6 +240,21 @@ func (w *logWriter) formatLogLine(line string) string {
 	}
 
 	formatted += entry.Message
+
+	// Append wait metadata when available (e.g., Matrix rate limiting)
+	if entry.Call != "" || entry.Reason != "" || entry.WaitMs > 0 {
+		meta := []string{}
+		if entry.Call != "" {
+			meta = append(meta, "call="+entry.Call)
+		}
+		if entry.Reason != "" {
+			meta = append(meta, "reason="+entry.Reason)
+		}
+		if entry.WaitMs > 0 {
+			meta = append(meta, fmt.Sprintf("wait_ms=%d", entry.WaitMs))
+		}
+		formatted += " [" + strings.Join(meta, " ") + "]"
+	}
 
 	return formatted
 }
