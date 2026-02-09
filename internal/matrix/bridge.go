@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -289,25 +290,54 @@ func (b *Bridge) autoProvision(agents []agent.AgentConfig) error {
 	}
 
 	// Join all users to the room
-	listenerRoomID, err := b.listener.JoinRoom(room)
+	listenerRoomID, err := b.joinRoomWithAdmin(b.listener, room)
 	if err != nil {
 		return fmt.Errorf("matrix join failed for listener: %w", err)
 	}
 	b.roomID = listenerRoomID
 
 	if b.adminUser != nil {
-		if _, err := b.adminUser.JoinRoom(room); err != nil {
+		if _, err := b.joinRoomWithAdmin(b.adminUser, room); err != nil {
 			log.WithError(err).WithField("user_id", b.adminUser.UserID()).Warn("matrix admin join failed")
 		}
 	}
 
 	for agentID, client := range b.agentClients {
-		if _, err := client.JoinRoom(room); err != nil {
+		if _, err := b.joinRoomWithAdmin(client, room); err != nil {
 			return fmt.Errorf("matrix join failed for agent %s: %w", agentID, err)
 		}
 	}
 
 	return nil
+}
+
+func (b *Bridge) joinRoomWithAdmin(client *Client, room string) (string, error) {
+	if client == nil {
+		return "", fmt.Errorf("matrix client is nil")
+	}
+	roomID, err := client.JoinRoom(room)
+	if err == nil {
+		return roomID, nil
+	}
+	if b.adminClient == nil || !isHTTPStatus(err, http.StatusForbidden) {
+		return "", err
+	}
+
+	adminRoomID, adminErr := b.adminClient.JoinRoomForUser(room, client.UserID())
+	if adminErr != nil {
+		return "", fmt.Errorf("%w (admin join failed: %v)", err, adminErr)
+	}
+	if adminRoomID != "" {
+		return adminRoomID, nil
+	}
+	return client.JoinRoom(room)
+}
+
+func isHTTPStatus(err error, status int) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), fmt.Sprintf("HTTP %d", status))
 }
 
 func (b *Bridge) listenLoop(ctx context.Context, onMessage func(agent.Message)) {

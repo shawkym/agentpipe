@@ -179,6 +179,76 @@ func (a *AdminClient) DeactivateUser(userID string, erase bool) error {
 	return fmt.Errorf("deactivate failed after retries")
 }
 
+// JoinRoomForUser forces a user to join a room via the admin API.
+func (a *AdminClient) JoinRoomForUser(roomIDOrAlias, userID string) (string, error) {
+	if roomIDOrAlias == "" {
+		return "", fmt.Errorf("room is required")
+	}
+	if userID == "" {
+		return "", fmt.Errorf("user_id is required")
+	}
+
+	endpoint := fmt.Sprintf("%s/_synapse/admin/v1/join/%s", a.baseURL, url.PathEscape(roomIDOrAlias))
+	query := url.Values{}
+	query.Set("user_id", userID)
+	endpoint = endpoint + "?" + query.Encode()
+
+	const maxRetries = defaultRateLimitRetries
+	var lastErr error
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		waitForLimiter(a.limiter)
+		req, err := http.NewRequest("POST", endpoint, nil)
+		if err != nil {
+			return "", fmt.Errorf("failed to create admin join request: %w", err)
+		}
+		a.addAuth(req)
+
+		resp, err := a.httpClient.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("admin join request failed: %w", err)
+		} else {
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+
+			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				var result struct {
+					RoomID string `json:"room_id"`
+				}
+				if err := json.Unmarshal(bodyBytes, &result); err == nil && result.RoomID != "" {
+					return result.RoomID, nil
+				}
+				return "", nil
+			}
+
+			if resp.StatusCode == http.StatusUnauthorized && isUnknownToken(bodyBytes) {
+				return "", ErrInvalidAdminToken
+			}
+			if resp.StatusCode == http.StatusTooManyRequests {
+				retryAfter := capRetryAfter(parseRetryAfter(bodyBytes))
+				if retryAfter > 0 && attempt < maxRetries {
+					time.Sleep(retryAfter)
+					continue
+				}
+			}
+
+			lastErr = fmt.Errorf("admin join failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
+		}
+
+		if attempt < maxRetries {
+			backoff := time.Duration(1<<attempt) * time.Second
+			time.Sleep(backoff)
+			continue
+		}
+	}
+
+	if lastErr != nil {
+		return "", lastErr
+	}
+
+	return "", fmt.Errorf("admin join failed after retries")
+}
+
 func (a *AdminClient) addAuth(req *http.Request) {
 	if a.accessToken != "" {
 		req.Header.Set("Authorization", "Bearer "+a.accessToken)
