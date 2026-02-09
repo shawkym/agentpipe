@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/shawkym/agentpipe/pkg/log"
-	"github.com/shawkym/agentpipe/pkg/ratelimit"
 )
 
 const (
@@ -74,12 +73,12 @@ func capRetryAfter(d time.Duration) time.Duration {
 	return d
 }
 
-func sleepWithLimiter(limiter *ratelimit.Limiter, call, reason string, d time.Duration) {
+func sleepWithPacer(pacer *Pacer, call, reason string, d time.Duration) {
 	if d <= 0 {
 		return
 	}
-	if reason == "retry_after" && limiter != nil {
-		limiter.Pause(d)
+	if reason == "retry_after" && pacer != nil {
+		pacer.Pause(d)
 	}
 	log.WithFields(map[string]interface{}{
 		"call":    call,
@@ -90,5 +89,5 @@ func sleepWithLimiter(limiter *ratelimit.Limiter, call, reason string, d time.Du
 }
 
 func sleepWithLog(call, reason string, d time.Duration) {
-	sleepWithLimiter(nil, call, reason, d)
+	sleepWithPacer(nil, call, reason, d)
 }

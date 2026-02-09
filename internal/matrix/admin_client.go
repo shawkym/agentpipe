@@ -10,8 +10,6 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
-	"github.com/shawkym/agentpipe/pkg/ratelimit"
 )
 
 // AdminClient provides access to Synapse admin APIs.
@@ -19,7 +17,7 @@ type AdminClient struct {
 	baseURL     string
 	accessToken string
 	httpClient  *http.Client
-	limiter     *ratelimit.Limiter
+	pacer       *Pacer
 }
 
 // ErrInvalidAdminToken indicates the admin token is invalid.
@@ -29,7 +27,7 @@ var ErrInvalidAdminToken = errors.New("matrix admin access token invalid")
 var ErrNonLocalUser = errors.New("matrix admin API only supports local users")
 
 // NewAdminClient creates a new admin client for the given homeserver.
-func NewAdminClient(baseURL, accessToken string, timeout time.Duration, limiter *ratelimit.Limiter) *AdminClient {
+func NewAdminClient(baseURL, accessToken string, timeout time.Duration, pacer *Pacer) *AdminClient {
 	if timeout == 0 {
 		timeout = 15 * time.Second
 	}
@@ -39,7 +37,7 @@ func NewAdminClient(baseURL, accessToken string, timeout time.Duration, limiter 
 		httpClient: &http.Client{
 			Timeout: timeout,
 		},
-		limiter: limiter,
+		pacer: pacer,
 	}
 }
 
@@ -69,7 +67,7 @@ func (a *AdminClient) CreateOrUpdateUser(userID, password, displayName string, a
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		waitForLimiter(a.limiter, "admin_create_user")
+		waitForPacer(a.pacer, "admin_create_user")
 		req, err := http.NewRequest("PUT", endpoint, bytes.NewReader(body))
 		if err != nil {
 			return fmt.Errorf("failed to create admin request: %w", err)
@@ -97,7 +95,7 @@ func (a *AdminClient) CreateOrUpdateUser(userID, password, displayName string, a
 			if resp.StatusCode == http.StatusTooManyRequests {
 				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
-					sleepWithLimiter(a.limiter, "admin_create_user", "retry_after", retryAfter)
+					sleepWithPacer(a.pacer, "admin_create_user", "retry_after", retryAfter)
 					continue
 				}
 			}
@@ -107,7 +105,7 @@ func (a *AdminClient) CreateOrUpdateUser(userID, password, displayName string, a
 
 		if attempt < maxRetries {
 			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithLimiter(a.limiter, "admin_create_user", "backoff", backoff)
+			sleepWithPacer(a.pacer, "admin_create_user", "backoff", backoff)
 			continue
 		}
 	}
@@ -139,7 +137,7 @@ func (a *AdminClient) DeactivateUser(userID string, erase bool) error {
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		waitForLimiter(a.limiter, "admin_deactivate_user")
+		waitForPacer(a.pacer, "admin_deactivate_user")
 		req, err := http.NewRequest("POST", endpoint, bytes.NewReader(body))
 		if err != nil {
 			return fmt.Errorf("failed to create deactivate request: %w", err)
@@ -164,7 +162,7 @@ func (a *AdminClient) DeactivateUser(userID string, erase bool) error {
 			if resp.StatusCode == http.StatusTooManyRequests {
 				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
-					sleepWithLimiter(a.limiter, "admin_deactivate_user", "retry_after", retryAfter)
+					sleepWithPacer(a.pacer, "admin_deactivate_user", "retry_after", retryAfter)
 					continue
 				}
 			}
@@ -174,7 +172,7 @@ func (a *AdminClient) DeactivateUser(userID string, erase bool) error {
 
 		if attempt < maxRetries {
 			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithLimiter(a.limiter, "admin_deactivate_user", "backoff", backoff)
+			sleepWithPacer(a.pacer, "admin_deactivate_user", "backoff", backoff)
 			continue
 		}
 	}
@@ -216,7 +214,7 @@ func (a *AdminClient) JoinRoomForUser(roomIDOrAlias, userID string) (string, err
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		waitForLimiter(a.limiter, "admin_join")
+		waitForPacer(a.pacer, "admin_join")
 		req, err := http.NewRequest("POST", endpoint, bytes.NewReader(body))
 		if err != nil {
 			return "", fmt.Errorf("failed to create admin join request: %w", err)
@@ -247,7 +245,7 @@ func (a *AdminClient) JoinRoomForUser(roomIDOrAlias, userID string) (string, err
 			if resp.StatusCode == http.StatusTooManyRequests {
 				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
-					sleepWithLimiter(a.limiter, "admin_join", "retry_after", retryAfter)
+					sleepWithPacer(a.pacer, "admin_join", "retry_after", retryAfter)
 					continue
 				}
 			}
@@ -257,7 +255,7 @@ func (a *AdminClient) JoinRoomForUser(roomIDOrAlias, userID string) (string, err
 
 		if attempt < maxRetries {
 			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithLimiter(a.limiter, "admin_join", "backoff", backoff)
+			sleepWithPacer(a.pacer, "admin_join", "backoff", backoff)
 			continue
 		}
 	}

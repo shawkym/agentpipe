@@ -9,8 +9,6 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
-	"github.com/shawkym/agentpipe/pkg/ratelimit"
 )
 
 // Client provides minimal Matrix Client-Server API operations.
@@ -19,11 +17,11 @@ type Client struct {
 	accessToken string
 	userID      string
 	httpClient  *http.Client
-	limiter     *ratelimit.Limiter
+	pacer       *Pacer
 }
 
 // NewClient creates a Matrix client with the provided base URL and access token.
-func NewClient(baseURL, accessToken, userID string, timeout time.Duration, limiter *ratelimit.Limiter) *Client {
+func NewClient(baseURL, accessToken, userID string, timeout time.Duration, pacer *Pacer) *Client {
 	if timeout == 0 {
 		timeout = 15 * time.Second
 	}
@@ -34,7 +32,7 @@ func NewClient(baseURL, accessToken, userID string, timeout time.Duration, limit
 		httpClient: &http.Client{
 			Timeout: timeout,
 		},
-		limiter: limiter,
+		pacer: pacer,
 	}
 }
 
@@ -50,7 +48,7 @@ func (c *Client) WhoAmI() (string, error) {
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		waitForLimiter(c.limiter, "whoami")
+		waitForPacer(c.pacer, "whoami")
 		req, err := http.NewRequest("GET", endpoint, nil)
 		if err != nil {
 			return "", fmt.Errorf("failed to create whoami request: %w", err)
@@ -80,7 +78,7 @@ func (c *Client) WhoAmI() (string, error) {
 			if resp.StatusCode == http.StatusTooManyRequests {
 				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
-					sleepWithLimiter(c.limiter, "whoami", "retry_after", retryAfter)
+					sleepWithPacer(c.pacer, "whoami", "retry_after", retryAfter)
 					continue
 				}
 			}
@@ -90,7 +88,7 @@ func (c *Client) WhoAmI() (string, error) {
 
 		if attempt < maxRetries {
 			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithLimiter(c.limiter, "whoami", "backoff", backoff)
+			sleepWithPacer(c.pacer, "whoami", "backoff", backoff)
 			continue
 		}
 	}
@@ -108,7 +106,7 @@ func (c *Client) AccessToken() string {
 }
 
 // LoginWithPassword logs in using a password and returns a new access token and user ID.
-func LoginWithPassword(baseURL, userID, password string, timeout time.Duration, limiter *ratelimit.Limiter) (string, string, error) {
+func LoginWithPassword(baseURL, userID, password string, timeout time.Duration, pacer *Pacer) (string, string, error) {
 	if timeout == 0 {
 		timeout = 15 * time.Second
 	}
@@ -133,7 +131,7 @@ func LoginWithPassword(baseURL, userID, password string, timeout time.Duration, 
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		waitForLimiter(limiter, "login")
+		waitForPacer(pacer, "login")
 		req, err := http.NewRequest("POST", endpoint, bytes.NewReader(body))
 		if err != nil {
 			return "", "", fmt.Errorf("failed to create login request: %w", err)
@@ -164,7 +162,7 @@ func LoginWithPassword(baseURL, userID, password string, timeout time.Duration, 
 			if resp.StatusCode == http.StatusTooManyRequests {
 				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
-					sleepWithLimiter(limiter, "login", "retry_after", retryAfter)
+					sleepWithPacer(pacer, "login", "retry_after", retryAfter)
 					continue
 				}
 			}
@@ -174,7 +172,7 @@ func LoginWithPassword(baseURL, userID, password string, timeout time.Duration, 
 
 		if attempt < maxRetries {
 			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithLimiter(limiter, "login", "backoff", backoff)
+			sleepWithPacer(pacer, "login", "backoff", backoff)
 			continue
 		}
 	}
@@ -203,7 +201,7 @@ func (c *Client) JoinRoom(room string) (string, error) {
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		waitForLimiter(c.limiter, "join")
+		waitForPacer(c.pacer, "join")
 		req, err := http.NewRequest("POST", endpoint, nil)
 		if err != nil {
 			return "", fmt.Errorf("failed to create join request: %w", err)
@@ -233,7 +231,7 @@ func (c *Client) JoinRoom(room string) (string, error) {
 			if resp.StatusCode == http.StatusTooManyRequests {
 				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
-					sleepWithLimiter(c.limiter, "join", "retry_after", retryAfter)
+					sleepWithPacer(c.pacer, "join", "retry_after", retryAfter)
 					continue
 				}
 			}
@@ -243,7 +241,7 @@ func (c *Client) JoinRoom(room string) (string, error) {
 
 		if attempt < maxRetries {
 			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithLimiter(c.limiter, "join", "backoff", backoff)
+			sleepWithPacer(c.pacer, "join", "backoff", backoff)
 			continue
 		}
 	}
@@ -289,7 +287,7 @@ func (c *Client) SendMessage(roomID, body string) error {
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		waitForLimiter(c.limiter, "send")
+		waitForPacer(c.pacer, "send")
 		req, err := http.NewRequest("PUT", endpoint, bytes.NewReader(data))
 		if err != nil {
 			return fmt.Errorf("failed to create send request: %w", err)
@@ -311,7 +309,7 @@ func (c *Client) SendMessage(roomID, body string) error {
 			if resp.StatusCode == http.StatusTooManyRequests {
 				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
-					sleepWithLimiter(c.limiter, "send", "retry_after", retryAfter)
+					sleepWithPacer(c.pacer, "send", "retry_after", retryAfter)
 					continue
 				}
 			}
@@ -321,7 +319,7 @@ func (c *Client) SendMessage(roomID, body string) error {
 
 		if attempt < maxRetries {
 			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithLimiter(c.limiter, "send", "backoff", backoff)
+			sleepWithPacer(c.pacer, "send", "backoff", backoff)
 			continue
 		}
 	}
@@ -357,7 +355,7 @@ func (c *Client) CreateRoomWithInvites(name string, invites []string) (string, e
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		waitForLimiter(c.limiter, "create_room")
+		waitForPacer(c.pacer, "create_room")
 		req, err := http.NewRequest("POST", endpoint, bytes.NewReader(data))
 		if err != nil {
 			return "", fmt.Errorf("failed to create createRoom request: %w", err)
@@ -388,7 +386,7 @@ func (c *Client) CreateRoomWithInvites(name string, invites []string) (string, e
 			if resp.StatusCode == http.StatusTooManyRequests {
 				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
-					sleepWithLimiter(c.limiter, "create_room", "retry_after", retryAfter)
+					sleepWithPacer(c.pacer, "create_room", "retry_after", retryAfter)
 					continue
 				}
 			}
@@ -398,7 +396,7 @@ func (c *Client) CreateRoomWithInvites(name string, invites []string) (string, e
 
 		if attempt < maxRetries {
 			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithLimiter(c.limiter, "create_room", "backoff", backoff)
+			sleepWithPacer(c.pacer, "create_room", "backoff", backoff)
 			continue
 		}
 	}
@@ -429,7 +427,7 @@ func (c *Client) Sync(since string, timeout time.Duration, filter string) (*Sync
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		waitForLimiter(c.limiter, "sync")
+		waitForPacer(c.pacer, "sync")
 		req, err := http.NewRequest("GET", endpoint+"?"+params.Encode(), nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create sync request: %w", err)
@@ -454,7 +452,7 @@ func (c *Client) Sync(since string, timeout time.Duration, filter string) (*Sync
 			if resp.StatusCode == http.StatusTooManyRequests {
 				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
-					sleepWithLimiter(c.limiter, "sync", "retry_after", retryAfter)
+					sleepWithPacer(c.pacer, "sync", "retry_after", retryAfter)
 					continue
 				}
 			}
@@ -464,7 +462,7 @@ func (c *Client) Sync(since string, timeout time.Duration, filter string) (*Sync
 
 		if attempt < maxRetries {
 			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithLimiter(c.limiter, "sync", "backoff", backoff)
+			sleepWithPacer(c.pacer, "sync", "backoff", backoff)
 			continue
 		}
 	}

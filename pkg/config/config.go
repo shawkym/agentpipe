@@ -111,7 +111,7 @@ type MatrixConfig struct {
 	EraseOnCleanup *bool `yaml:"erase_on_cleanup"`
 	// RateLimit caps Matrix API requests per second (default: 1.0). Set to 0 to disable.
 	RateLimit *float64 `yaml:"rate_limit"`
-	// RateLimitBurst sets the maximum burst size for Matrix API requests (default: 1).
+	// RateLimitBurst is deprecated for Matrix pacing and ignored (kept for backward compatibility).
 	RateLimitBurst *int `yaml:"rate_limit_burst"`
 	// Listener defines the Matrix user used to listen for inbound messages
 	Listener agent.MatrixUserConfig `yaml:"listener"`

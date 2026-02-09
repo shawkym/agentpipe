@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -152,6 +153,45 @@ func TestCreateChatCompletion_APIError(t *testing.T) {
 
 	if !strings.Contains(err.Error(), "Invalid model specified") {
 		t.Errorf("Expected error message to contain 'Invalid model specified', got: %v", err)
+	}
+}
+
+func TestHandleErrorResponse_RetryAfterHeader(t *testing.T) {
+	client := NewOpenAICompatClient("https://api.example.com/v1", "test-api-key")
+	resp := &http.Response{
+		StatusCode: http.StatusTooManyRequests,
+		Header:     http.Header{"Retry-After": []string{"1"}},
+		Body:       io.NopCloser(strings.NewReader(`{"error":{"message":"rate limited"}}`)),
+	}
+
+	err := client.handleErrorResponse(resp)
+	apiErr, ok := err.(*APIError)
+	if !ok {
+		t.Fatalf("expected APIError, got %T", err)
+	}
+	if apiErr.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("unexpected status code: %d", apiErr.StatusCode)
+	}
+	if apiErr.RetryAfter < time.Second {
+		t.Fatalf("expected retry_after >= 1s, got %v", apiErr.RetryAfter)
+	}
+}
+
+func TestHandleErrorResponse_RetryAfterMessage(t *testing.T) {
+	client := NewOpenAICompatClient("https://api.example.com/v1", "test-api-key")
+	resp := &http.Response{
+		StatusCode: http.StatusTooManyRequests,
+		Header:     http.Header{},
+		Body:       io.NopCloser(strings.NewReader(`{"error":{"message":"Rate limit reached. Please try again in 0.5s."}}`)),
+	}
+
+	err := client.handleErrorResponse(resp)
+	apiErr, ok := err.(*APIError)
+	if !ok {
+		t.Fatalf("expected APIError, got %T", err)
+	}
+	if apiErr.RetryAfter < 500*time.Millisecond {
+		t.Fatalf("expected retry_after >= 500ms, got %v", apiErr.RetryAfter)
 	}
 }
 

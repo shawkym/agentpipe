@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -87,6 +89,17 @@ type ChatCompletionError struct {
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
+// APIError represents a structured HTTP error with optional Retry-After information.
+type APIError struct {
+	StatusCode int
+	Message    string
+	RetryAfter time.Duration
+}
+
+func (e *APIError) Error() string {
+	return fmt.Sprintf("HTTP %d: %s", e.StatusCode, e.Message)
+}
+
 // ChatCompletionStreamChunk represents a chunk in a streaming response.
 type ChatCompletionStreamChunk struct {
 	ID      string                       `json:"id"`
@@ -118,13 +131,10 @@ func (c *OpenAICompatClient) CreateChatCompletion(
 	req.Stream = false
 
 	var lastErr error
+	var retryAfter time.Duration
 	for attempt := 0; attempt <= c.maxRetries; attempt++ {
 		if attempt > 0 {
-			// Exponential backoff: 1s, 2s, 4s
-			// Safely convert attempt-1 to uint (bounded by maxRetries, max value is 3)
-			shift := min(attempt-1, 30) // Cap at 2^30 to prevent overflow
-			//nolint:gosec // G115: shift is bounded by min(maxRetries, 30), safe from overflow
-			backoff := time.Duration(1<<uint(shift)) * time.Second
+			backoff := retryDelay(attempt, retryAfter)
 			log.WithFields(map[string]interface{}{
 				"attempt": attempt,
 				"backoff": backoff.String(),
@@ -137,9 +147,16 @@ func (c *OpenAICompatClient) CreateChatCompletion(
 			}
 		}
 
+		retryAfter = 0
 		resp, err := c.doRequest(ctx, req)
 		if err != nil {
 			lastErr = err
+			if apiErr, ok := err.(*APIError); ok {
+				retryAfter = apiErr.RetryAfter
+				if apiErr.StatusCode == http.StatusTooManyRequests || apiErr.StatusCode >= 500 {
+					continue
+				}
+			}
 			// Only retry on server errors (5xx) or network errors
 			if shouldRetry(err) {
 				continue
@@ -161,22 +178,59 @@ func (c *OpenAICompatClient) CreateChatCompletionStream(
 ) (*ChatCompletionUsage, error) {
 	req.Stream = true
 
-	httpReq, err := c.prepareStreamRequest(ctx, req)
-	if err != nil {
-		return nil, err
+	var lastErr error
+	var retryAfter time.Duration
+	for attempt := 0; attempt <= c.maxRetries; attempt++ {
+		if attempt > 0 {
+			backoff := retryDelay(attempt, retryAfter)
+			log.WithFields(map[string]interface{}{
+				"attempt": attempt,
+				"backoff": backoff.String(),
+			}).Debug("retrying streaming chat completion request")
+
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(backoff):
+			}
+		}
+
+		retryAfter = 0
+		httpReq, err := c.prepareStreamRequest(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+
+		resp, err := c.httpClient.Do(httpReq)
+		if err != nil {
+			lastErr = fmt.Errorf("request failed: %w", err)
+			if shouldRetry(lastErr) {
+				continue
+			}
+			return nil, lastErr
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			err = c.handleErrorResponse(resp)
+			resp.Body.Close()
+			lastErr = err
+			if apiErr, ok := err.(*APIError); ok {
+				retryAfter = apiErr.RetryAfter
+				if apiErr.StatusCode == http.StatusTooManyRequests || apiErr.StatusCode >= 500 {
+					continue
+				}
+			}
+			if shouldRetry(err) {
+				continue
+			}
+			return nil, err
+		}
+
+		defer resp.Body.Close()
+		return c.processStreamResponse(resp.Body, writer)
 	}
 
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, c.handleErrorResponse(resp)
-	}
-
-	return c.processStreamResponse(resp.Body, writer)
+	return nil, fmt.Errorf("failed after %d retries: %w", c.maxRetries, lastErr)
 }
 
 // prepareStreamRequest creates and configures an HTTP request for streaming.
@@ -337,15 +391,169 @@ func (c *OpenAICompatClient) handleErrorResponse(resp *http.Response) error {
 		Error *ChatCompletionError `json:"error"`
 	}
 
-	if err := json.Unmarshal(body, &errorResp); err != nil {
-		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	message := strings.TrimSpace(string(body))
+	retryAfter := parseRetryAfter(resp, body)
+
+	if err := json.Unmarshal(body, &errorResp); err == nil {
+		if errorResp.Error != nil && strings.TrimSpace(errorResp.Error.Message) != "" {
+			message = strings.TrimSpace(errorResp.Error.Message)
+		}
 	}
 
-	if errorResp.Error != nil {
-		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, errorResp.Error.Message)
+	retryAfter = maxDuration(retryAfter, parseRetryAfterMessage(message))
+
+	return &APIError{
+		StatusCode: resp.StatusCode,
+		Message:    message,
+		RetryAfter: retryAfter,
+	}
+}
+
+var retryAfterMessageRe = regexp.MustCompile(`(?i)(?:try again in|retry after)\s*([0-9]+(?:\.[0-9]+)?)s`)
+
+func parseRetryAfter(resp *http.Response, body []byte) time.Duration {
+	headerDelay := parseRetryAfterHeader(resp)
+	bodyDelay := parseRetryAfterBody(body)
+	return maxDuration(headerDelay, bodyDelay)
+}
+
+func parseRetryAfterHeader(resp *http.Response) time.Duration {
+	if resp == nil {
+		return 0
+	}
+	raw := strings.TrimSpace(resp.Header.Get("Retry-After"))
+	if raw == "" {
+		return 0
 	}
 
-	return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	if seconds, err := strconv.Atoi(raw); err == nil && seconds > 0 {
+		return time.Duration(seconds) * time.Second
+	}
+
+	if parsed, err := http.ParseTime(raw); err == nil {
+		wait := time.Until(parsed)
+		if wait > 0 {
+			return wait
+		}
+	}
+
+	return 0
+}
+
+func parseRetryAfterBody(body []byte) time.Duration {
+	if len(body) == 0 {
+		return 0
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return 0
+	}
+
+	return parseRetryAfterMap(payload)
+}
+
+func parseRetryAfterMap(payload map[string]interface{}) time.Duration {
+	var maxDelay time.Duration
+	maxDelay = maxDuration(maxDelay, parseDurationField(payload, "retry_after_ms", time.Millisecond))
+	maxDelay = maxDuration(maxDelay, parseDurationField(payload, "retry_after", time.Second))
+	maxDelay = maxDuration(maxDelay, parseDurationField(payload, "retry_after_seconds", time.Second))
+
+	if errObj, ok := payload["error"].(map[string]interface{}); ok {
+		maxDelay = maxDuration(maxDelay, parseDurationField(errObj, "retry_after_ms", time.Millisecond))
+		maxDelay = maxDuration(maxDelay, parseDurationField(errObj, "retry_after", time.Second))
+		maxDelay = maxDuration(maxDelay, parseDurationField(errObj, "retry_after_seconds", time.Second))
+		if meta, ok := errObj["metadata"].(map[string]interface{}); ok {
+			maxDelay = maxDuration(maxDelay, parseDurationField(meta, "retry_after_ms", time.Millisecond))
+			maxDelay = maxDuration(maxDelay, parseDurationField(meta, "retry_after", time.Second))
+			maxDelay = maxDuration(maxDelay, parseDurationField(meta, "retry_after_seconds", time.Second))
+		}
+	}
+
+	return maxDelay
+}
+
+func parseDurationField(payload map[string]interface{}, key string, unit time.Duration) time.Duration {
+	raw, ok := payload[key]
+	if !ok {
+		return 0
+	}
+	switch value := raw.(type) {
+	case float64:
+		if value <= 0 {
+			return 0
+		}
+		return time.Duration(value * float64(unit))
+	case string:
+		if parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64); err == nil && parsed > 0 {
+			return time.Duration(parsed * float64(unit))
+		}
+	}
+	return 0
+}
+
+func parseRetryAfterMessage(message string) time.Duration {
+	if message == "" {
+		return 0
+	}
+	match := retryAfterMessageRe.FindStringSubmatch(message)
+	if len(match) < 2 {
+		return 0
+	}
+	seconds, err := strconv.ParseFloat(match[1], 64)
+	if err != nil || seconds <= 0 {
+		return 0
+	}
+	return time.Duration(seconds * float64(time.Second))
+}
+
+func retryDelay(attempt int, retryAfter time.Duration) time.Duration {
+	// Exponential backoff: 1s, 2s, 4s...
+	shift := min(attempt-1, 30) // Cap at 2^30 to prevent overflow
+	//nolint:gosec // G115: shift is bounded by min(maxRetries, 30), safe from overflow
+	backoff := time.Duration(1<<uint(shift)) * time.Second
+
+	if retryAfter > 0 {
+		retryAfter = retryAfter + retrySafetyMargin(retryAfter)
+		if retryAfter > backoff {
+			backoff = retryAfter
+		}
+	}
+
+	return addJitter(backoff)
+}
+
+func retrySafetyMargin(wait time.Duration) time.Duration {
+	if wait <= 0 {
+		return 0
+	}
+	margin := time.Duration(float64(wait) * 0.10)
+	if margin < 25*time.Millisecond {
+		margin = 25 * time.Millisecond
+	}
+	if margin > 500*time.Millisecond {
+		margin = 500 * time.Millisecond
+	}
+	return margin
+}
+
+func addJitter(wait time.Duration) time.Duration {
+	if wait <= 0 {
+		return 0
+	}
+	maxJitter := wait / 10
+	if maxJitter < 10*time.Millisecond {
+		return wait
+	}
+	jitter := time.Duration(time.Now().UnixNano() % int64(maxJitter))
+	return wait + jitter
+}
+
+func maxDuration(a, b time.Duration) time.Duration {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // shouldRetry determines if a request should be retried based on the error.

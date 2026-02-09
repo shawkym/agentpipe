@@ -14,9 +14,8 @@ matrix:
   admin_access_token: "YOUR_SYNAPSE_ADMIN_TOKEN"
   # admin_user_id: "@admin:localhost"
   # admin_password: "YOUR_ADMIN_PASSWORD"
-  # Optional rate limiting for Matrix API calls (default: 1 req/s, burst 1)
+  # Optional pacing for Matrix API calls (default: 1 req/s)
   rate_limit: 1.0
-  rate_limit_burst: 1
   # Optional cleanup controls (default: remove users, do not erase chats)
   cleanup: true
   erase_on_cleanup: false

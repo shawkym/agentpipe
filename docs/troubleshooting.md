@@ -222,10 +222,9 @@ M_LIMIT_EXCEEDED
 ```yaml
 matrix:
   rate_limit: 0.5
-  rate_limit_burst: 1
 ```
 
-2. **Avoid disabling the limiter if your server is strict:**
+2. **Avoid disabling pacing if your server is strict:**
 ```yaml
 matrix:
   rate_limit: 1.0  # Default pacing; safer than 0 for most Synapse setups
