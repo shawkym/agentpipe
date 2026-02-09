@@ -80,7 +80,7 @@ func (c *Client) WhoAmI() (string, error) {
 			if resp.StatusCode == http.StatusTooManyRequests {
 				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
-					sleepWithLog("whoami", "retry_after", retryAfter)
+					sleepWithLimiter(c.limiter, "whoami", "retry_after", retryAfter)
 					continue
 				}
 			}
@@ -90,7 +90,7 @@ func (c *Client) WhoAmI() (string, error) {
 
 		if attempt < maxRetries {
 			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithLog("whoami", "backoff", backoff)
+			sleepWithLimiter(c.limiter, "whoami", "backoff", backoff)
 			continue
 		}
 	}
@@ -164,7 +164,7 @@ func LoginWithPassword(baseURL, userID, password string, timeout time.Duration, 
 			if resp.StatusCode == http.StatusTooManyRequests {
 				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
-					sleepWithLog("login", "retry_after", retryAfter)
+					sleepWithLimiter(limiter, "login", "retry_after", retryAfter)
 					continue
 				}
 			}
@@ -174,7 +174,7 @@ func LoginWithPassword(baseURL, userID, password string, timeout time.Duration, 
 
 		if attempt < maxRetries {
 			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithLog("login", "backoff", backoff)
+			sleepWithLimiter(limiter, "login", "backoff", backoff)
 			continue
 		}
 	}
@@ -233,7 +233,7 @@ func (c *Client) JoinRoom(room string) (string, error) {
 			if resp.StatusCode == http.StatusTooManyRequests {
 				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
-					sleepWithLog("join", "retry_after", retryAfter)
+					sleepWithLimiter(c.limiter, "join", "retry_after", retryAfter)
 					continue
 				}
 			}
@@ -243,7 +243,7 @@ func (c *Client) JoinRoom(room string) (string, error) {
 
 		if attempt < maxRetries {
 			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithLog("join", "backoff", backoff)
+			sleepWithLimiter(c.limiter, "join", "backoff", backoff)
 			continue
 		}
 	}
@@ -311,7 +311,7 @@ func (c *Client) SendMessage(roomID, body string) error {
 			if resp.StatusCode == http.StatusTooManyRequests {
 				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
-					sleepWithLog("send", "retry_after", retryAfter)
+					sleepWithLimiter(c.limiter, "send", "retry_after", retryAfter)
 					continue
 				}
 			}
@@ -321,7 +321,7 @@ func (c *Client) SendMessage(roomID, body string) error {
 
 		if attempt < maxRetries {
 			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithLog("send", "backoff", backoff)
+			sleepWithLimiter(c.limiter, "send", "backoff", backoff)
 			continue
 		}
 	}
@@ -388,7 +388,7 @@ func (c *Client) CreateRoomWithInvites(name string, invites []string) (string, e
 			if resp.StatusCode == http.StatusTooManyRequests {
 				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
-					sleepWithLog("create_room", "retry_after", retryAfter)
+					sleepWithLimiter(c.limiter, "create_room", "retry_after", retryAfter)
 					continue
 				}
 			}
@@ -398,7 +398,7 @@ func (c *Client) CreateRoomWithInvites(name string, invites []string) (string, e
 
 		if attempt < maxRetries {
 			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithLog("create_room", "backoff", backoff)
+			sleepWithLimiter(c.limiter, "create_room", "backoff", backoff)
 			continue
 		}
 	}
@@ -454,7 +454,7 @@ func (c *Client) Sync(since string, timeout time.Duration, filter string) (*Sync
 			if resp.StatusCode == http.StatusTooManyRequests {
 				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
-					sleepWithLog("sync", "retry_after", retryAfter)
+					sleepWithLimiter(c.limiter, "sync", "retry_after", retryAfter)
 					continue
 				}
 			}
@@ -464,7 +464,7 @@ func (c *Client) Sync(since string, timeout time.Duration, filter string) (*Sync
 
 		if attempt < maxRetries {
 			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithLog("sync", "backoff", backoff)
+			sleepWithLimiter(c.limiter, "sync", "backoff", backoff)
 			continue
 		}
 	}

@@ -155,6 +155,25 @@ func TestLimiterWaitContext(t *testing.T) {
 	}
 }
 
+func TestLimiterPause(t *testing.T) {
+	limiter := NewLimiter(100.0, 1) // fast limiter so pause dominates
+
+	limiter.Pause(120 * time.Millisecond)
+
+	if limiter.Allow() {
+		t.Error("expected Allow to be false during pause")
+	}
+
+	start := time.Now()
+	if err := limiter.Wait(context.Background()); err != nil {
+		t.Fatalf("wait during pause should succeed: %v", err)
+	}
+	elapsed := time.Since(start)
+	if elapsed < 90*time.Millisecond {
+		t.Errorf("expected wait to honor pause, waited %v", elapsed)
+	}
+}
+
 func TestLimiterConcurrent(t *testing.T) {
 	limiter := NewLimiter(100.0, 10) // 100 req/s, burst 10
 	ctx := context.Background()

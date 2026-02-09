@@ -13,12 +13,13 @@ import (
 // Limiter implements a token bucket rate limiter.
 // It is safe for concurrent use.
 type Limiter struct {
-	mu         sync.Mutex
-	rate       float64   // tokens per second
-	burst      int       // maximum tokens in bucket
-	tokens     float64   // current tokens
-	lastRefill time.Time // last time tokens were refilled
-	disabled   bool      // if true, limiter always allows requests
+	mu            sync.Mutex
+	rate          float64   // tokens per second
+	burst         int       // maximum tokens in bucket
+	tokens        float64   // current tokens
+	lastRefill    time.Time // last time tokens were refilled
+	disabled      bool      // if true, limiter always allows requests
+	cooldownUntil time.Time // if set, block requests until this time
 }
 
 // NewLimiter creates a new rate limiter with the given rate (requests per second) and burst size.
@@ -52,6 +53,16 @@ func (l *Limiter) Wait(ctx context.Context) error {
 	}
 
 	for {
+		// Respect cooldowns (e.g., server Retry-After).
+		if cooldown := l.cooldownRemaining(); cooldown > 0 {
+			select {
+			case <-time.After(cooldown):
+				continue
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+
 		// Try to take a token
 		if l.tryTake() {
 			return nil
@@ -76,6 +87,10 @@ func (l *Limiter) Wait(ctx context.Context) error {
 func (l *Limiter) Allow() bool {
 	if l.disabled {
 		return true
+	}
+
+	if l.cooldownRemaining() > 0 {
+		return false
 	}
 
 	return l.tryTake()
@@ -153,12 +168,52 @@ func (l *Limiter) SetBurst(burst int) {
 	}
 }
 
+// Pause blocks the limiter for at least the provided duration.
+// Used to honor server-side Retry-After responses.
+func (l *Limiter) Pause(d time.Duration) {
+	if d <= 0 {
+		return
+	}
+	now := time.Now()
+	until := now.Add(d)
+
+	l.mu.Lock()
+	if until.After(l.cooldownUntil) {
+		l.cooldownUntil = until
+	}
+	l.mu.Unlock()
+}
+
+// CooldownRemaining returns the remaining cooldown duration, if any.
+func (l *Limiter) CooldownRemaining() time.Duration {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.cooldownRemainingLocked(time.Now())
+}
+
+func (l *Limiter) cooldownRemaining() time.Duration {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.cooldownRemainingLocked(time.Now())
+}
+
+func (l *Limiter) cooldownRemainingLocked(now time.Time) time.Duration {
+	if l.cooldownUntil.IsZero() {
+		return 0
+	}
+	if now.Before(l.cooldownUntil) {
+		return l.cooldownUntil.Sub(now)
+	}
+	return 0
+}
+
 // Stats returns current rate limiter statistics.
 type Stats struct {
-	Rate            float64
-	Burst           int
-	AvailableTokens float64
-	Disabled        bool
+	Rate              float64
+	Burst             int
+	AvailableTokens   float64
+	Disabled          bool
+	CooldownRemaining time.Duration
 }
 
 // GetStats returns current statistics about the rate limiter.
@@ -175,10 +230,11 @@ func (l *Limiter) GetStats() Stats {
 	}
 
 	return Stats{
-		Rate:            l.rate,
-		Burst:           l.burst,
-		AvailableTokens: tokens,
-		Disabled:        l.disabled,
+		Rate:              l.rate,
+		Burst:             l.burst,
+		AvailableTokens:   tokens,
+		Disabled:          l.disabled,
+		CooldownRemaining: l.cooldownRemainingLocked(now),
 	}
 }
 

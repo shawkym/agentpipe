@@ -11,7 +11,7 @@ import (
 var (
 	// Version is the current version of agentpipe
 	// This will be set at build time using -ldflags
-	Version = "0.8.0"
+	Version = "0.8.1"
 
 	// CommitHash is the git commit hash
 	CommitHash = "unknown"

@@ -97,7 +97,7 @@ func (a *AdminClient) CreateOrUpdateUser(userID, password, displayName string, a
 			if resp.StatusCode == http.StatusTooManyRequests {
 				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
-					sleepWithLog("admin_create_user", "retry_after", retryAfter)
+					sleepWithLimiter(a.limiter, "admin_create_user", "retry_after", retryAfter)
 					continue
 				}
 			}
@@ -107,7 +107,7 @@ func (a *AdminClient) CreateOrUpdateUser(userID, password, displayName string, a
 
 		if attempt < maxRetries {
 			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithLog("admin_create_user", "backoff", backoff)
+			sleepWithLimiter(a.limiter, "admin_create_user", "backoff", backoff)
 			continue
 		}
 	}
@@ -164,7 +164,7 @@ func (a *AdminClient) DeactivateUser(userID string, erase bool) error {
 			if resp.StatusCode == http.StatusTooManyRequests {
 				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
-					sleepWithLog("admin_deactivate_user", "retry_after", retryAfter)
+					sleepWithLimiter(a.limiter, "admin_deactivate_user", "retry_after", retryAfter)
 					continue
 				}
 			}
@@ -174,7 +174,7 @@ func (a *AdminClient) DeactivateUser(userID string, erase bool) error {
 
 		if attempt < maxRetries {
 			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithLog("admin_deactivate_user", "backoff", backoff)
+			sleepWithLimiter(a.limiter, "admin_deactivate_user", "backoff", backoff)
 			continue
 		}
 	}
@@ -247,7 +247,7 @@ func (a *AdminClient) JoinRoomForUser(roomIDOrAlias, userID string) (string, err
 			if resp.StatusCode == http.StatusTooManyRequests {
 				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
-					sleepWithLog("admin_join", "retry_after", retryAfter)
+					sleepWithLimiter(a.limiter, "admin_join", "retry_after", retryAfter)
 					continue
 				}
 			}
@@ -257,7 +257,7 @@ func (a *AdminClient) JoinRoomForUser(roomIDOrAlias, userID string) (string, err
 
 		if attempt < maxRetries {
 			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithLog("admin_join", "backoff", backoff)
+			sleepWithLimiter(a.limiter, "admin_join", "backoff", backoff)
 			continue
 		}
 	}

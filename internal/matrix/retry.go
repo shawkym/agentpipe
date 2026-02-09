@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/shawkym/agentpipe/pkg/log"
+	"github.com/shawkym/agentpipe/pkg/ratelimit"
 )
 
 const (
@@ -73,9 +74,12 @@ func capRetryAfter(d time.Duration) time.Duration {
 	return d
 }
 
-func sleepWithLog(call, reason string, d time.Duration) {
+func sleepWithLimiter(limiter *ratelimit.Limiter, call, reason string, d time.Duration) {
 	if d <= 0 {
 		return
+	}
+	if reason == "retry_after" && limiter != nil {
+		limiter.Pause(d)
 	}
 	log.WithFields(map[string]interface{}{
 		"call":    call,
@@ -83,4 +87,8 @@ func sleepWithLog(call, reason string, d time.Duration) {
 		"wait_ms": d.Milliseconds(),
 	}).Info("matrix api wait")
 	time.Sleep(d)
+}
+
+func sleepWithLog(call, reason string, d time.Duration) {
+	sleepWithLimiter(nil, call, reason, d)
 }
