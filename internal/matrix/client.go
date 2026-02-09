@@ -78,7 +78,7 @@ func (c *Client) WhoAmI() (string, error) {
 			}
 
 			if resp.StatusCode == http.StatusTooManyRequests {
-				retryAfter := capRetryAfter(parseRetryAfter(bodyBytes))
+				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
 					sleepWithLog("whoami", "retry_after", retryAfter)
 					continue
@@ -162,7 +162,7 @@ func LoginWithPassword(baseURL, userID, password string, timeout time.Duration, 
 			}
 
 			if resp.StatusCode == http.StatusTooManyRequests {
-				retryAfter := capRetryAfter(parseRetryAfter(bodyBytes))
+				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
 					sleepWithLog("login", "retry_after", retryAfter)
 					continue
@@ -231,7 +231,7 @@ func (c *Client) JoinRoom(room string) (string, error) {
 			}
 
 			if resp.StatusCode == http.StatusTooManyRequests {
-				retryAfter := capRetryAfter(parseRetryAfter(bodyBytes))
+				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
 					sleepWithLog("join", "retry_after", retryAfter)
 					continue
@@ -309,7 +309,7 @@ func (c *Client) SendMessage(roomID, body string) error {
 			}
 
 			if resp.StatusCode == http.StatusTooManyRequests {
-				retryAfter := capRetryAfter(parseRetryAfter(bodyBytes))
+				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
 					sleepWithLog("send", "retry_after", retryAfter)
 					continue
@@ -386,7 +386,7 @@ func (c *Client) CreateRoomWithInvites(name string, invites []string) (string, e
 			}
 
 			if resp.StatusCode == http.StatusTooManyRequests {
-				retryAfter := capRetryAfter(parseRetryAfter(bodyBytes))
+				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
 					sleepWithLog("create_room", "retry_after", retryAfter)
 					continue
@@ -452,7 +452,7 @@ func (c *Client) Sync(since string, timeout time.Duration, filter string) (*Sync
 			}
 
 			if resp.StatusCode == http.StatusTooManyRequests {
-				retryAfter := capRetryAfter(parseRetryAfter(bodyBytes))
+				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
 					sleepWithLog("sync", "retry_after", retryAfter)
 					continue

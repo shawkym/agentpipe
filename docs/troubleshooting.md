@@ -6,6 +6,7 @@ This guide helps diagnose and resolve common issues with AgentPipe.
 
 - [Installation Issues](#installation-issues)
 - [Configuration Issues](#configuration-issues)
+- [Matrix Issues](#matrix-issues)
 - [Agent Communication Issues](#agent-communication-issues)
 - [Performance Issues](#performance-issues)
 - [TUI Issues](#tui-issues)
@@ -173,6 +174,61 @@ orchestrator:
 orchestrator:
   turn_timeout: 30s   # s, m, h
   response_delay: 1s
+```
+
+## Matrix Issues
+
+### Issue: `This endpoint can only be used with local users`
+
+**Symptoms:**
+```
+Error: matrix setup failed: matrix listener creation failed: create user failed: HTTP 400: {"errcode":"M_UNKNOWN","error":"This endpoint can only be used with local users"}
+```
+
+**Solutions:**
+
+1. **Set the correct server name:**
+```yaml
+matrix:
+  enabled: true
+  homeserver: "https://matrix.example.com"
+  # Must match Synapse `server_name`, which is often the base domain
+  server_name: "example.com"
+```
+
+2. **Use the admin user domain as a guide:**
+```bash
+curl -s https://matrix.example.com/_matrix/client/v3/account/whoami \
+  -H "Authorization: Bearer $MATRIX_ADMIN_TOKEN"
+
+# The `user_id` domain is the correct server_name (e.g., @admin:example.com)
+```
+
+3. **Environment variables work too:**
+```
+MATRIX_SERVER_NAME=example.com
+```
+
+### Issue: Matrix auto-provision hits rate limits during startup
+
+**Symptoms:**
+```
+M_LIMIT_EXCEEDED
+```
+
+**Solutions:**
+
+1. **Lower the Matrix API rate limit during provisioning:**
+```yaml
+matrix:
+  rate_limit: 0.5
+  rate_limit_burst: 1
+```
+
+2. **Avoid disabling the limiter if your server is strict:**
+```yaml
+matrix:
+  rate_limit: 1.0  # Default pacing; safer than 0 for most Synapse setups
 ```
 
 ## Agent Communication Issues

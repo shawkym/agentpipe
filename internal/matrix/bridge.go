@@ -220,7 +220,33 @@ func (b *Bridge) autoProvision(agents []agent.AgentConfig) error {
 	adminClient := NewAdminClient(homeserver, adminToken, 15*time.Second, b.limiter)
 	b.adminClient = adminClient
 
-	serverName := resolveServerName(b.cfg, homeserver)
+	whoamiUserID := ""
+	lookup := NewClient(homeserver, adminToken, "", 15*time.Second, b.limiter)
+	if who, err := lookup.WhoAmI(); err == nil {
+		whoamiUserID = who
+	} else {
+		log.WithError(err).Warn("matrix admin whoami failed")
+	}
+
+	serverName, explicitServerName := resolveServerName(b.cfg, homeserver)
+	inferredServerName := serverNameFromUserID(whoamiUserID)
+	if inferredServerName == "" {
+		inferredServerName = serverNameFromUserID(adminUser)
+	}
+	if inferredServerName != "" && inferredServerName != serverName {
+		fields := map[string]interface{}{
+			"server_name":  serverName,
+			"inferred":     inferredServerName,
+			"admin_user":   adminUser,
+			"admin_whoami": whoamiUserID,
+		}
+		if explicitServerName {
+			log.WithFields(fields).Warn("matrix server_name does not match admin user domain; overriding for auto-provisioning")
+		} else {
+			log.WithFields(fields).Warn("matrix server_name inferred from admin user")
+		}
+		serverName = inferredServerName
+	}
 	userPrefix := b.cfg.UserPrefix
 	if userPrefix == "" {
 		userPrefix = "agentpipe"
@@ -229,14 +255,12 @@ func (b *Bridge) autoProvision(agents []agent.AgentConfig) error {
 	b.cleanup = resolveCleanup(b.cfg)
 	b.eraseCleanup = resolveEraseCleanup(b.cfg)
 
-	adminUserID := normalizeUserID(adminUser, serverName)
+	adminUserID := ""
+	if adminUser != "" {
+		adminUserID = normalizeUserID(adminUser, serverName)
+	}
 	if adminUserID == "" {
-		lookup := NewClient(homeserver, adminToken, "", 15*time.Second, b.limiter)
-		if who, err := lookup.WhoAmI(); err == nil {
-			adminUserID = who
-		} else {
-			log.WithError(err).Warn("matrix admin whoami failed")
-		}
+		adminUserID = whoamiUserID
 	}
 	if adminUserID != "" {
 		b.adminUser = NewClient(homeserver, adminToken, adminUserID, 15*time.Second, b.limiter)
@@ -503,19 +527,19 @@ func resolveAdminToken(cfg config.MatrixConfig) string {
 	return os.Getenv("MATRIX_ADMIN_TOKEN")
 }
 
-func resolveServerName(cfg config.MatrixConfig, homeserver string) string {
+func resolveServerName(cfg config.MatrixConfig, homeserver string) (string, bool) {
 	if cfg.ServerName != "" {
-		return cfg.ServerName
+		return cfg.ServerName, true
 	}
 	if env := os.Getenv("MATRIX_SERVER_NAME"); env != "" {
-		return env
+		return env, true
 	}
 
 	parsed, err := url.Parse(homeserver)
 	if err == nil && parsed.Hostname() != "" {
-		return parsed.Hostname()
+		return parsed.Hostname(), false
 	}
-	return "localhost"
+	return "localhost", false
 }
 
 func resolveRateLimit(cfg config.MatrixConfig) (float64, int) {
@@ -550,6 +574,20 @@ func normalizeUserID(user, serverName string) string {
 		return "@" + localpart
 	}
 	return fmt.Sprintf("@%s:%s", localpart, serverName)
+}
+
+func serverNameFromUserID(userID string) string {
+	trimmed := strings.TrimSpace(userID)
+	if trimmed == "" {
+		return ""
+	}
+	if strings.HasPrefix(trimmed, "@") {
+		trimmed = strings.TrimPrefix(trimmed, "@")
+	}
+	if idx := strings.Index(trimmed, ":"); idx != -1 && idx+1 < len(trimmed) {
+		return trimmed[idx+1:]
+	}
+	return ""
 }
 
 func resolveCleanup(cfg config.MatrixConfig) bool {
@@ -636,6 +674,13 @@ func (b *Bridge) createUserWithRetry(adminClient *AdminClient, homeserver, userI
 		}
 		adminClient.SetAccessToken(token)
 		return adminClient.CreateOrUpdateUser(userID, password, displayName, false)
+	}
+	if err == ErrNonLocalUser {
+		domain := serverNameFromUserID(userID)
+		if domain == "" {
+			return fmt.Errorf("matrix admin API only supports local users; ensure matrix.server_name matches your Synapse server_name")
+		}
+		return fmt.Errorf("matrix admin API only supports local users; user_id domain is %q. Set matrix.server_name (or MATRIX_SERVER_NAME) to your Synapse server_name", domain)
 	}
 
 	return err

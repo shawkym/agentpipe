@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/shawkym/agentpipe/pkg/ratelimit"
@@ -23,6 +24,9 @@ type AdminClient struct {
 
 // ErrInvalidAdminToken indicates the admin token is invalid.
 var ErrInvalidAdminToken = errors.New("matrix admin access token invalid")
+
+// ErrNonLocalUser indicates the admin API was called with a non-local user ID.
+var ErrNonLocalUser = errors.New("matrix admin API only supports local users")
 
 // NewAdminClient creates a new admin client for the given homeserver.
 func NewAdminClient(baseURL, accessToken string, timeout time.Duration, limiter *ratelimit.Limiter) *AdminClient {
@@ -87,8 +91,11 @@ func (a *AdminClient) CreateOrUpdateUser(userID, password, displayName string, a
 			if resp.StatusCode == http.StatusUnauthorized && isUnknownToken(bodyBytes) {
 				return ErrInvalidAdminToken
 			}
+			if resp.StatusCode == http.StatusBadRequest && isLocalUserOnly(bodyBytes) {
+				return ErrNonLocalUser
+			}
 			if resp.StatusCode == http.StatusTooManyRequests {
-				retryAfter := capRetryAfter(parseRetryAfter(bodyBytes))
+				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
 					sleepWithLog("admin_create_user", "retry_after", retryAfter)
 					continue
@@ -155,7 +162,7 @@ func (a *AdminClient) DeactivateUser(userID string, erase bool) error {
 				return ErrInvalidAdminToken
 			}
 			if resp.StatusCode == http.StatusTooManyRequests {
-				retryAfter := capRetryAfter(parseRetryAfter(bodyBytes))
+				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
 					sleepWithLog("admin_deactivate_user", "retry_after", retryAfter)
 					continue
@@ -225,7 +232,7 @@ func (a *AdminClient) JoinRoomForUser(roomIDOrAlias, userID string) (string, err
 				return "", ErrInvalidAdminToken
 			}
 			if resp.StatusCode == http.StatusTooManyRequests {
-				retryAfter := capRetryAfter(parseRetryAfter(bodyBytes))
+				retryAfter := capRetryAfter(parseRetryAfter(resp, bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
 					sleepWithLog("admin_join", "retry_after", retryAfter)
 					continue
@@ -268,4 +275,21 @@ func isUnknownToken(body []byte) bool {
 		return false
 	}
 	return payload.ErrCode == "M_UNKNOWN_TOKEN"
+}
+
+func isLocalUserOnly(body []byte) bool {
+	var payload struct {
+		ErrCode string `json:"errcode"`
+		Error   string `json:"error"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return false
+	}
+	if payload.Error == "" {
+		return false
+	}
+	if payload.ErrCode != "" && payload.ErrCode != "M_UNKNOWN" {
+		return false
+	}
+	return strings.Contains(strings.ToLower(payload.Error), "local users")
 }

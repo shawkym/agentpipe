@@ -2,6 +2,9 @@ package matrix
 
 import (
 	"encoding/json"
+	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/shawkym/agentpipe/pkg/log"
@@ -17,15 +20,47 @@ type rateLimitPayload struct {
 	RetryAfterMs int    `json:"retry_after_ms"`
 }
 
-func parseRetryAfter(body []byte) time.Duration {
+func parseRetryAfter(resp *http.Response, body []byte) time.Duration {
+	headerDelay := parseRetryAfterHeader(resp)
+	bodyDelay := parseRetryAfterBody(body)
+	if bodyDelay > headerDelay {
+		return bodyDelay
+	}
+	return headerDelay
+}
+
+func parseRetryAfterBody(body []byte) time.Duration {
 	var payload rateLimitPayload
 	if err := json.Unmarshal(body, &payload); err != nil {
 		return 0
 	}
-	if payload.ErrCode != "M_LIMIT_EXCEEDED" || payload.RetryAfterMs <= 0 {
+	if payload.RetryAfterMs <= 0 {
 		return 0
 	}
 	return time.Duration(payload.RetryAfterMs) * time.Millisecond
+}
+
+func parseRetryAfterHeader(resp *http.Response) time.Duration {
+	if resp == nil {
+		return 0
+	}
+	raw := strings.TrimSpace(resp.Header.Get("Retry-After"))
+	if raw == "" {
+		return 0
+	}
+
+	if seconds, err := strconv.Atoi(raw); err == nil && seconds > 0 {
+		return time.Duration(seconds) * time.Second
+	}
+
+	if parsed, err := http.ParseTime(raw); err == nil {
+		wait := time.Until(parsed)
+		if wait > 0 {
+			return wait
+		}
+	}
+
+	return 0
 }
 
 func capRetryAfter(d time.Duration) time.Duration {

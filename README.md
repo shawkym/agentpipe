@@ -139,7 +139,7 @@ matrix:
   auto_provision: true # optional when MATRIX_ADMIN_TOKEN is set
   # Optional; defaults to http://localhost:8008
   homeserver: "http://localhost:8008"
-  # Optional; defaults to homeserver host
+  # Optional; defaults to homeserver host (will infer from admin user domain if different)
   server_name: "localhost"
   # Optional; if empty AgentPipe will create a new private room
   room: ""
