@@ -348,6 +348,7 @@ func RunEnhanced(ctx context.Context, cfg *config.Config, agents []agent.Agent, 
 		if err != nil {
 			return fmt.Errorf("matrix setup failed: %w", err)
 		}
+		defer matrixBridge.Close()
 		orch.AddMessageHook(matrixBridge.Send)
 		matrixBridge.Start(ctx, func(msg agent.Message) {
 			orch.InjectMessage(msg)

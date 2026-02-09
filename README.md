@@ -130,6 +130,36 @@ Notes:
 - Each agent must have a unique Matrix user with an access token (or password).
 - The listener account receives room input and injects it into the conversation.
 
+#### Auto-Provisioned Matrix Users (No Per-Agent Config)
+If you want AgentPipe to create temporary Matrix users for each agent automatically, enable auto-provisioning and provide a Synapse admin token. AgentPipe will create users at startup, generate logins/tokens, and deactivate them on shutdown.
+
+```yaml
+matrix:
+  enabled: true
+  auto_provision: true
+  # Optional; defaults to http://localhost:8008
+  homeserver: "http://localhost:8008"
+  # Optional; defaults to homeserver host
+  server_name: "localhost"
+  # Optional; if empty AgentPipe will create a new private room
+  room: ""
+  # Required for auto provisioning
+  admin_access_token: "YOUR_SYNAPSE_ADMIN_TOKEN"
+```
+
+You can also provide these via environment variables:
+- `MATRIX_HOMESERVER`
+- `MATRIX_SERVER_NAME`
+- `MATRIX_ROOM`
+- `MATRIX_ADMIN_TOKEN`
+
+Example:
+- `examples/matrix-auto-provision.yaml` - Auto-provisioned Matrix users
+
+Cleanup:
+- `cleanup: false` keeps auto-provisioned users after shutdown
+- `erase_on_cleanup: false` deactivates without GDPR erase
+
 ## What's New
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed version history and release notes.

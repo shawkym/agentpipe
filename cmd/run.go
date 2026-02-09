@@ -408,17 +408,26 @@ func startConversation(cmd *cobra.Command, cfg *config.Config, stdoutEmitter *br
 	}
 
 	// Set up Matrix (Synapse) integration if enabled
+	var matrixBridge *matrix.Bridge
 	if cfg.Matrix.Enabled {
-		matrixBridge, err := matrix.NewBridge(cfg.Matrix, cfg.Agents)
+		var err error
+		matrixBridge, err = matrix.NewBridge(cfg.Matrix, cfg.Agents)
 		if err != nil {
 			return fmt.Errorf("matrix setup failed: %w", err)
 		}
+		defer matrixBridge.Close()
 		orch.AddMessageHook(matrixBridge.Send)
 		matrixBridge.Start(ctx, func(msg agent.Message) {
 			orch.InjectMessage(msg)
 		})
 		if !jsonOutput {
-			fmt.Printf("🟩 Matrix bridge enabled (room: %s)\n", cfg.Matrix.Room)
+			if cfg.Matrix.Room != "" {
+				fmt.Printf("🟩 Matrix bridge enabled (room: %s)\n", cfg.Matrix.Room)
+			} else if cfg.Matrix.AutoProvision {
+				fmt.Println("🟩 Matrix bridge enabled (auto-provisioned users)")
+			} else {
+				fmt.Println("🟩 Matrix bridge enabled")
+			}
 		}
 	}
 

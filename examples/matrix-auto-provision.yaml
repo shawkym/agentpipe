@@ -1,0 +1,34 @@
+version: "1.0"
+
+matrix:
+  enabled: true
+  auto_provision: true
+  # Optional; defaults to http://localhost:8008
+  homeserver: "http://localhost:8008"
+  # Optional; defaults to homeserver host
+  server_name: "localhost"
+  # Optional; if empty AgentPipe will create a private room
+  room: ""
+  # Required for auto-provisioning
+  admin_access_token: "YOUR_SYNAPSE_ADMIN_TOKEN"
+
+orchestrator:
+  mode: "round-robin"
+  max_turns: 6
+  turn_timeout: 30s
+  response_delay: 1s
+  initial_prompt: "Discuss how we should roll out the next release."
+
+logging:
+  enabled: true
+  show_metrics: true
+
+agents:
+  - id: claude-0
+    type: claude
+    name: Alice
+    model: "claude-sonnet-4.5"
+  - id: gemini-0
+    type: gemini
+    name: Bob
+    model: "gemini-1.5-pro"

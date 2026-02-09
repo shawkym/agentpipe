@@ -87,12 +87,24 @@ type BridgeConfig struct {
 type MatrixConfig struct {
 	// Enabled determines if Matrix integration is active (disabled by default)
 	Enabled bool `yaml:"enabled"`
+	// AutoProvision creates temporary Matrix users for agents via admin API (default: false)
+	AutoProvision bool `yaml:"auto_provision"`
 	// Homeserver is the base URL for the Matrix homeserver (e.g., https://matrix.example.com)
 	Homeserver string `yaml:"homeserver"`
+	// ServerName is the Matrix server name (defaults to homeserver host)
+	ServerName string `yaml:"server_name"`
 	// Room is the room ID or alias to join (e.g., !roomid:example.com or #alias:example.com)
 	Room string `yaml:"room"`
 	// SyncTimeoutMs is the long-poll timeout for sync in milliseconds (default: 30000)
 	SyncTimeoutMs int `yaml:"sync_timeout_ms"`
+	// AdminAccessToken is the Synapse admin access token (required for auto-provision)
+	AdminAccessToken string `yaml:"admin_access_token"`
+	// UserPrefix is the prefix for auto-provisioned users (default: "agentpipe")
+	UserPrefix string `yaml:"user_prefix"`
+	// Cleanup removes auto-provisioned users on shutdown (default: true)
+	Cleanup *bool `yaml:"cleanup"`
+	// EraseOnCleanup marks users as GDPR-erased when deactivating (default: true)
+	EraseOnCleanup *bool `yaml:"erase_on_cleanup"`
 	// Listener defines the Matrix user used to listen for inbound messages
 	Listener agent.MatrixUserConfig `yaml:"listener"`
 }
@@ -126,8 +138,11 @@ func NewDefaultConfig() *Config {
 			ShowMetrics: false,
 		},
 		Matrix: MatrixConfig{
-			Enabled:       false,
-			SyncTimeoutMs: 30000,
+			Enabled:        false,
+			SyncTimeoutMs:  30000,
+			UserPrefix:     "agentpipe",
+			Cleanup:        boolPtr(true),
+			EraseOnCleanup: boolPtr(true),
 		},
 	}
 }
@@ -215,19 +230,25 @@ func (c *Config) Validate() error {
 	}
 
 	if c.Matrix.Enabled {
-		if c.Matrix.Homeserver == "" {
-			return fmt.Errorf("matrix.homeserver is required when matrix is enabled")
-		}
-		if c.Matrix.Room == "" {
-			return fmt.Errorf("matrix.room is required when matrix is enabled")
-		}
-
-		for _, agentCfg := range c.Agents {
-			if agentCfg.Matrix.UserID == "" {
-				return fmt.Errorf("matrix user_id is required for agent %s when matrix is enabled", agentCfg.ID)
+		if c.Matrix.AutoProvision {
+			if c.Matrix.AdminAccessToken == "" && os.Getenv("MATRIX_ADMIN_TOKEN") == "" {
+				return fmt.Errorf("matrix.admin_access_token or MATRIX_ADMIN_TOKEN is required when matrix auto_provision is enabled")
 			}
-			if agentCfg.Matrix.AccessToken == "" && agentCfg.Matrix.Password == "" {
-				return fmt.Errorf("matrix access_token or password is required for agent %s when matrix is enabled", agentCfg.ID)
+		} else {
+			if c.Matrix.Homeserver == "" {
+				return fmt.Errorf("matrix.homeserver is required when matrix is enabled")
+			}
+			if c.Matrix.Room == "" {
+				return fmt.Errorf("matrix.room is required when matrix is enabled")
+			}
+
+			for _, agentCfg := range c.Agents {
+				if agentCfg.Matrix.UserID == "" {
+					return fmt.Errorf("matrix user_id is required for agent %s when matrix is enabled", agentCfg.ID)
+				}
+				if agentCfg.Matrix.AccessToken == "" && agentCfg.Matrix.Password == "" {
+					return fmt.Errorf("matrix access_token or password is required for agent %s when matrix is enabled", agentCfg.ID)
+				}
 			}
 		}
 	}
@@ -294,6 +315,15 @@ func (c *Config) applyDefaults() {
 	if c.Matrix.SyncTimeoutMs == 0 {
 		c.Matrix.SyncTimeoutMs = 30000
 	}
+	if c.Matrix.UserPrefix == "" {
+		c.Matrix.UserPrefix = "agentpipe"
+	}
+	if c.Matrix.Cleanup == nil {
+		c.Matrix.Cleanup = boolPtr(true)
+	}
+	if c.Matrix.EraseOnCleanup == nil {
+		c.Matrix.EraseOnCleanup = boolPtr(true)
+	}
 
 	for i := range c.Agents {
 		// Only apply temperature default if not explicitly set (< 0 means not set)
@@ -305,4 +335,8 @@ func (c *Config) applyDefaults() {
 			c.Agents[i].MaxTokens = 2000
 		}
 	}
+}
+
+func boolPtr(v bool) *bool {
+	return &v
 }

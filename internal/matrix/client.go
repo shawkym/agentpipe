@@ -178,6 +178,49 @@ func (c *Client) SendMessage(roomID, body string) error {
 	return nil
 }
 
+// CreateRoom creates a new room and returns its room ID.
+func (c *Client) CreateRoom(name string) (string, error) {
+	endpoint := c.baseURL + "/_matrix/client/v3/createRoom"
+	payload := map[string]interface{}{
+		"name": name,
+	}
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal create room payload: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", endpoint, bytes.NewReader(data))
+	if err != nil {
+		return "", fmt.Errorf("failed to create createRoom request: %w", err)
+	}
+	c.addAuth(req)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("create room request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("create room failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	var result struct {
+		RoomID string `json:"room_id"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("failed to parse createRoom response: %w", err)
+	}
+	if result.RoomID == "" {
+		return "", fmt.Errorf("createRoom response missing room_id")
+	}
+
+	return result.RoomID, nil
+}
+
 // Sync performs a single sync request.
 func (c *Client) Sync(since string, timeout time.Duration, filter string) (*SyncResponse, error) {
 	endpoint := c.baseURL + "/_matrix/client/v3/sync"
