@@ -145,6 +145,9 @@ matrix:
   room: ""
   # Required for auto provisioning
   admin_access_token: "YOUR_SYNAPSE_ADMIN_TOKEN"
+  # Optional rate limiting for Matrix API calls
+  rate_limit: 1.0
+  rate_limit_burst: 1
 ```
 
 You can also provide these via environment variables:
@@ -180,6 +183,7 @@ If `matrix.admin_user_id` (or `MATRIX_ADMIN_USER`) is set, AgentPipe will invite
 Rate limits:
 - If Synapse returns `M_LIMIT_EXCEEDED`, AgentPipe will honor `retry_after_ms` and retry logins automatically.
 - Auto-provisioning also retries user creation and room joins when rate limited.
+- Matrix API calls are paced by a built-in limiter (default: `rate_limit: 1.0`, `rate_limit_burst: 1`). Set `matrix.rate_limit: 0` to disable.
 
 Example:
 - `examples/matrix-auto-provision.yaml` - Auto-provisioned Matrix users

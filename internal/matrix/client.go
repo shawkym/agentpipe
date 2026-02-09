@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/shawkym/agentpipe/pkg/ratelimit"
 )
 
 // Client provides minimal Matrix Client-Server API operations.
@@ -17,10 +19,11 @@ type Client struct {
 	accessToken string
 	userID      string
 	httpClient  *http.Client
+	limiter     *ratelimit.Limiter
 }
 
 // NewClient creates a Matrix client with the provided base URL and access token.
-func NewClient(baseURL, accessToken, userID string, timeout time.Duration) *Client {
+func NewClient(baseURL, accessToken, userID string, timeout time.Duration, limiter *ratelimit.Limiter) *Client {
 	if timeout == 0 {
 		timeout = 15 * time.Second
 	}
@@ -31,6 +34,7 @@ func NewClient(baseURL, accessToken, userID string, timeout time.Duration) *Clie
 		httpClient: &http.Client{
 			Timeout: timeout,
 		},
+		limiter: limiter,
 	}
 }
 
@@ -46,6 +50,7 @@ func (c *Client) WhoAmI() (string, error) {
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
+		waitForLimiter(c.limiter)
 		req, err := http.NewRequest("GET", endpoint, nil)
 		if err != nil {
 			return "", fmt.Errorf("failed to create whoami request: %w", err)
@@ -103,7 +108,7 @@ func (c *Client) AccessToken() string {
 }
 
 // LoginWithPassword logs in using a password and returns a new access token and user ID.
-func LoginWithPassword(baseURL, userID, password string, timeout time.Duration) (string, string, error) {
+func LoginWithPassword(baseURL, userID, password string, timeout time.Duration, limiter *ratelimit.Limiter) (string, string, error) {
 	if timeout == 0 {
 		timeout = 15 * time.Second
 	}
@@ -128,6 +133,7 @@ func LoginWithPassword(baseURL, userID, password string, timeout time.Duration) 
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
+		waitForLimiter(limiter)
 		req, err := http.NewRequest("POST", endpoint, bytes.NewReader(body))
 		if err != nil {
 			return "", "", fmt.Errorf("failed to create login request: %w", err)
@@ -197,6 +203,7 @@ func (c *Client) JoinRoom(room string) (string, error) {
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
+		waitForLimiter(c.limiter)
 		req, err := http.NewRequest("POST", endpoint, nil)
 		if err != nil {
 			return "", fmt.Errorf("failed to create join request: %w", err)
@@ -278,25 +285,52 @@ func (c *Client) SendMessage(roomID, body string) error {
 		return fmt.Errorf("failed to marshal message payload: %w", err)
 	}
 
-	req, err := http.NewRequest("PUT", endpoint, bytes.NewReader(data))
-	if err != nil {
-		return fmt.Errorf("failed to create send request: %w", err)
-	}
-	c.addAuth(req)
-	req.Header.Set("Content-Type", "application/json")
+	const maxRetries = defaultRateLimitRetries
+	var lastErr error
 
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("send request failed: %w", err)
-	}
-	defer resp.Body.Close()
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		waitForLimiter(c.limiter)
+		req, err := http.NewRequest("PUT", endpoint, bytes.NewReader(data))
+		if err != nil {
+			return fmt.Errorf("failed to create send request: %w", err)
+		}
+		c.addAuth(req)
+		req.Header.Set("Content-Type", "application/json")
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("send failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("send request failed: %w", err)
+		} else {
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+
+			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				return nil
+			}
+
+			if resp.StatusCode == http.StatusTooManyRequests {
+				retryAfter := capRetryAfter(parseRetryAfter(bodyBytes))
+				if retryAfter > 0 && attempt < maxRetries {
+					time.Sleep(retryAfter)
+					continue
+				}
+			}
+
+			lastErr = fmt.Errorf("send failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
+		}
+
+		if attempt < maxRetries {
+			backoff := time.Duration(1<<attempt) * time.Second
+			time.Sleep(backoff)
+			continue
+		}
 	}
 
-	return nil
+	if lastErr != nil {
+		return lastErr
+	}
+
+	return fmt.Errorf("send failed after retries")
 }
 
 // CreateRoom creates a new room and returns its room ID.
@@ -323,6 +357,7 @@ func (c *Client) CreateRoomWithInvites(name string, invites []string) (string, e
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
+		waitForLimiter(c.limiter)
 		req, err := http.NewRequest("POST", endpoint, bytes.NewReader(data))
 		if err != nil {
 			return "", fmt.Errorf("failed to create createRoom request: %w", err)
@@ -390,29 +425,55 @@ func (c *Client) Sync(since string, timeout time.Duration, filter string) (*Sync
 	}
 	params.Set("set_presence", "offline")
 
-	req, err := http.NewRequest("GET", endpoint+"?"+params.Encode(), nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create sync request: %w", err)
-	}
-	c.addAuth(req)
+	const maxRetries = defaultRateLimitRetries
+	var lastErr error
 
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("sync request failed: %w", err)
-	}
-	defer resp.Body.Close()
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		waitForLimiter(c.limiter)
+		req, err := http.NewRequest("GET", endpoint+"?"+params.Encode(), nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create sync request: %w", err)
+		}
+		c.addAuth(req)
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("sync failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("sync request failed: %w", err)
+		} else {
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+
+			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				var result SyncResponse
+				if err := json.Unmarshal(bodyBytes, &result); err != nil {
+					return nil, fmt.Errorf("failed to parse sync response: %w", err)
+				}
+				return &result, nil
+			}
+
+			if resp.StatusCode == http.StatusTooManyRequests {
+				retryAfter := capRetryAfter(parseRetryAfter(bodyBytes))
+				if retryAfter > 0 && attempt < maxRetries {
+					time.Sleep(retryAfter)
+					continue
+				}
+			}
+
+			lastErr = fmt.Errorf("sync failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
+		}
+
+		if attempt < maxRetries {
+			backoff := time.Duration(1<<attempt) * time.Second
+			time.Sleep(backoff)
+			continue
+		}
 	}
 
-	var result SyncResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to parse sync response: %w", err)
+	if lastErr != nil {
+		return nil, lastErr
 	}
 
-	return &result, nil
+	return nil, fmt.Errorf("sync failed after retries")
 }
 
 func (c *Client) addAuth(req *http.Request) {

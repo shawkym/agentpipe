@@ -109,6 +109,10 @@ type MatrixConfig struct {
 	Cleanup *bool `yaml:"cleanup"`
 	// EraseOnCleanup marks users as GDPR-erased when deactivating (default: false)
 	EraseOnCleanup *bool `yaml:"erase_on_cleanup"`
+	// RateLimit caps Matrix API requests per second (default: 1.0). Set to 0 to disable.
+	RateLimit *float64 `yaml:"rate_limit"`
+	// RateLimitBurst sets the maximum burst size for Matrix API requests (default: 1).
+	RateLimitBurst *int `yaml:"rate_limit_burst"`
 	// Listener defines the Matrix user used to listen for inbound messages
 	Listener agent.MatrixUserConfig `yaml:"listener"`
 }
@@ -147,6 +151,8 @@ func NewDefaultConfig() *Config {
 			UserPrefix:     "agentpipe",
 			Cleanup:        boolPtr(true),
 			EraseOnCleanup: boolPtr(false),
+			RateLimit:      floatPtr(1.0),
+			RateLimitBurst: intPtr(1),
 		},
 	}
 }
@@ -363,6 +369,12 @@ func (c *Config) applyDefaults() {
 	if c.Matrix.EraseOnCleanup == nil {
 		c.Matrix.EraseOnCleanup = boolPtr(false)
 	}
+	if c.Matrix.RateLimit == nil {
+		c.Matrix.RateLimit = floatPtr(1.0)
+	}
+	if c.Matrix.RateLimitBurst == nil {
+		c.Matrix.RateLimitBurst = intPtr(1)
+	}
 
 	for i := range c.Agents {
 		// Only apply temperature default if not explicitly set (< 0 means not set)
@@ -377,5 +389,13 @@ func (c *Config) applyDefaults() {
 }
 
 func boolPtr(v bool) *bool {
+	return &v
+}
+
+func floatPtr(v float64) *float64 {
+	return &v
+}
+
+func intPtr(v int) *int {
 	return &v
 }

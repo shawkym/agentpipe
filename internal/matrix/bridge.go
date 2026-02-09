@@ -13,6 +13,7 @@ import (
 	"github.com/shawkym/agentpipe/pkg/agent"
 	"github.com/shawkym/agentpipe/pkg/config"
 	"github.com/shawkym/agentpipe/pkg/log"
+	"github.com/shawkym/agentpipe/pkg/ratelimit"
 )
 
 const (
@@ -29,6 +30,7 @@ type Bridge struct {
 	adminUser    *Client
 	knownSenders map[string]struct{}
 	adminClient  *AdminClient
+	limiter      *ratelimit.Limiter
 	createdUsers []string
 	cleanup      bool
 	eraseCleanup bool
@@ -49,6 +51,10 @@ func NewBridge(cfg config.MatrixConfig, agents []agent.AgentConfig) (*Bridge, er
 		sendQueue:    make(chan agent.Message, sendQueueSize),
 	}
 
+	homeserver := resolveHomeserver(cfg)
+	rateLimit, rateBurst := resolveRateLimit(cfg)
+	bridge.limiter = limiterFor(homeserver, rateLimit, rateBurst)
+
 	if cfg.AutoProvision || resolveAdminToken(cfg) != "" {
 		if err := bridge.autoProvision(agents); err != nil {
 			return nil, err
@@ -63,7 +69,7 @@ func NewBridge(cfg config.MatrixConfig, agents []agent.AgentConfig) (*Bridge, er
 
 		// Initialize agent clients
 		for _, agentCfg := range agents {
-			client, err := createClient(cfg.Homeserver, agentCfg.Matrix)
+			client, err := createClient(cfg.Homeserver, agentCfg.Matrix, bridge.limiter)
 			if err != nil {
 				return nil, fmt.Errorf("matrix login failed for agent %s: %w", agentCfg.ID, err)
 			}
@@ -81,7 +87,7 @@ func NewBridge(cfg config.MatrixConfig, agents []agent.AgentConfig) (*Bridge, er
 		}
 
 		// Listener client (optional)
-		listener, err := createListener(cfg.Homeserver, cfg.Listener, agents)
+		listener, err := createListener(cfg.Homeserver, cfg.Listener, agents, bridge.limiter)
 		if err != nil {
 			return nil, err
 		}
@@ -199,7 +205,7 @@ func (b *Bridge) autoProvision(agents []agent.AgentConfig) error {
 	adminUser, adminPassword := resolveAdminCredentials(b.cfg)
 	if adminToken == "" {
 		if adminUser != "" && adminPassword != "" {
-			token, _, err := LoginWithPassword(homeserver, adminUser, adminPassword, 15*time.Second)
+			token, _, err := LoginWithPassword(homeserver, adminUser, adminPassword, 15*time.Second, b.limiter)
 			if err != nil {
 				return fmt.Errorf("matrix admin login failed: %w", err)
 			}
@@ -210,7 +216,7 @@ func (b *Bridge) autoProvision(agents []agent.AgentConfig) error {
 		return fmt.Errorf("matrix admin access token is required for auto-provisioning")
 	}
 
-	adminClient := NewAdminClient(homeserver, adminToken, 15*time.Second)
+	adminClient := NewAdminClient(homeserver, adminToken, 15*time.Second, b.limiter)
 	b.adminClient = adminClient
 
 	serverName := resolveServerName(b.cfg, homeserver)
@@ -224,7 +230,7 @@ func (b *Bridge) autoProvision(agents []agent.AgentConfig) error {
 
 	adminUserID := normalizeUserID(adminUser, serverName)
 	if adminUserID == "" {
-		lookup := NewClient(homeserver, adminToken, "", 15*time.Second)
+		lookup := NewClient(homeserver, adminToken, "", 15*time.Second, b.limiter)
 		if who, err := lookup.WhoAmI(); err == nil {
 			adminUserID = who
 		} else {
@@ -232,7 +238,7 @@ func (b *Bridge) autoProvision(agents []agent.AgentConfig) error {
 		}
 	}
 	if adminUserID != "" {
-		b.adminUser = NewClient(homeserver, adminToken, adminUserID, 15*time.Second)
+		b.adminUser = NewClient(homeserver, adminToken, adminUserID, 15*time.Second, b.limiter)
 	}
 
 	// Create listener user
@@ -242,11 +248,11 @@ func (b *Bridge) autoProvision(agents []agent.AgentConfig) error {
 		return fmt.Errorf("matrix listener creation failed: %w", err)
 	}
 	b.createdUsers = append(b.createdUsers, listenerUserID)
-	listenerToken, listenerID, err := LoginWithPassword(homeserver, listenerUserID, listenerPassword, 15*time.Second)
+	listenerToken, listenerID, err := LoginWithPassword(homeserver, listenerUserID, listenerPassword, 15*time.Second, b.limiter)
 	if err != nil {
 		return fmt.Errorf("matrix listener login failed: %w", err)
 	}
-	b.listener = NewClient(homeserver, listenerToken, listenerID, 15*time.Second)
+	b.listener = NewClient(homeserver, listenerToken, listenerID, 15*time.Second, b.limiter)
 	b.knownSenders[listenerID] = struct{}{}
 
 	// Create agent users
@@ -259,11 +265,11 @@ func (b *Bridge) autoProvision(agents []agent.AgentConfig) error {
 		}
 		b.createdUsers = append(b.createdUsers, userID)
 
-		token, createdUserID, err := LoginWithPassword(homeserver, userID, password, 15*time.Second)
+		token, createdUserID, err := LoginWithPassword(homeserver, userID, password, 15*time.Second, b.limiter)
 		if err != nil {
 			return fmt.Errorf("matrix login failed for agent %s: %w", agentCfg.ID, err)
 		}
-		client := NewClient(homeserver, token, createdUserID, 15*time.Second)
+		client := NewClient(homeserver, token, createdUserID, 15*time.Second, b.limiter)
 		b.agentClients[agentCfg.ID] = client
 		b.knownSenders[createdUserID] = struct{}{}
 	}
@@ -367,7 +373,7 @@ func (b *Bridge) listenLoop(ctx context.Context, onMessage func(agent.Message)) 
 	}
 }
 
-func createClient(homeserver string, userCfg agent.MatrixUserConfig) (*Client, error) {
+func createClient(homeserver string, userCfg agent.MatrixUserConfig, limiter *ratelimit.Limiter) (*Client, error) {
 	if userCfg.UserID == "" {
 		return nil, fmt.Errorf("user_id is required")
 	}
@@ -376,7 +382,7 @@ func createClient(homeserver string, userCfg agent.MatrixUserConfig) (*Client, e
 	userID := userCfg.UserID
 	if token == "" && userCfg.Password != "" {
 		var err error
-		token, userID, err = LoginWithPassword(homeserver, userCfg.UserID, userCfg.Password, 15*time.Second)
+		token, userID, err = LoginWithPassword(homeserver, userCfg.UserID, userCfg.Password, 15*time.Second, limiter)
 		if err != nil {
 			return nil, err
 		}
@@ -386,12 +392,12 @@ func createClient(homeserver string, userCfg agent.MatrixUserConfig) (*Client, e
 		return nil, fmt.Errorf("access token is required for %s", userCfg.UserID)
 	}
 
-	return NewClient(homeserver, token, userID, 15*time.Second), nil
+	return NewClient(homeserver, token, userID, 15*time.Second, limiter), nil
 }
 
-func createListener(homeserver string, listenerCfg agent.MatrixUserConfig, agents []agent.AgentConfig) (*Client, error) {
+func createListener(homeserver string, listenerCfg agent.MatrixUserConfig, agents []agent.AgentConfig, limiter *ratelimit.Limiter) (*Client, error) {
 	if listenerCfg.UserID != "" {
-		return createClient(homeserver, listenerCfg)
+		return createClient(homeserver, listenerCfg, limiter)
 	}
 
 	// Fallback to first agent for listening
@@ -405,7 +411,7 @@ func createListener(homeserver string, listenerCfg agent.MatrixUserConfig, agent
 	}
 
 	log.WithField("user_id", first.UserID).Warn("matrix listener not configured, using first agent for listening")
-	return createClient(homeserver, first)
+	return createClient(homeserver, first, limiter)
 }
 
 func buildSyncFilter(roomID string, limit int) string {
@@ -480,6 +486,18 @@ func resolveServerName(cfg config.MatrixConfig, homeserver string) string {
 		return parsed.Hostname()
 	}
 	return "localhost"
+}
+
+func resolveRateLimit(cfg config.MatrixConfig) (float64, int) {
+	rate := 1.0
+	burst := 1
+	if cfg.RateLimit != nil {
+		rate = *cfg.RateLimit
+	}
+	if cfg.RateLimitBurst != nil {
+		burst = *cfg.RateLimitBurst
+	}
+	return rate, burst
 }
 
 func normalizeUserID(user, serverName string) string {
@@ -582,7 +600,7 @@ func (b *Bridge) createUserWithRetry(adminClient *AdminClient, homeserver, userI
 		if adminUser == "" || adminPassword == "" {
 			return fmt.Errorf("invalid admin token; provide admin_access_token or admin_user_id/admin_password")
 		}
-		token, _, loginErr := LoginWithPassword(homeserver, adminUser, adminPassword, 15*time.Second)
+		token, _, loginErr := LoginWithPassword(homeserver, adminUser, adminPassword, 15*time.Second, b.limiter)
 		if loginErr != nil {
 			return fmt.Errorf("matrix admin login failed: %w", loginErr)
 		}

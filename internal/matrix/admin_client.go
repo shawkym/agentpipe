@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/shawkym/agentpipe/pkg/ratelimit"
 )
 
 // AdminClient provides access to Synapse admin APIs.
@@ -16,13 +18,14 @@ type AdminClient struct {
 	baseURL     string
 	accessToken string
 	httpClient  *http.Client
+	limiter     *ratelimit.Limiter
 }
 
 // ErrInvalidAdminToken indicates the admin token is invalid.
 var ErrInvalidAdminToken = errors.New("matrix admin access token invalid")
 
 // NewAdminClient creates a new admin client for the given homeserver.
-func NewAdminClient(baseURL, accessToken string, timeout time.Duration) *AdminClient {
+func NewAdminClient(baseURL, accessToken string, timeout time.Duration, limiter *ratelimit.Limiter) *AdminClient {
 	if timeout == 0 {
 		timeout = 15 * time.Second
 	}
@@ -32,6 +35,7 @@ func NewAdminClient(baseURL, accessToken string, timeout time.Duration) *AdminCl
 		httpClient: &http.Client{
 			Timeout: timeout,
 		},
+		limiter: limiter,
 	}
 }
 
@@ -61,6 +65,7 @@ func (a *AdminClient) CreateOrUpdateUser(userID, password, displayName string, a
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
+		waitForLimiter(a.limiter)
 		req, err := http.NewRequest("PUT", endpoint, bytes.NewReader(body))
 		if err != nil {
 			return fmt.Errorf("failed to create admin request: %w", err)
@@ -127,6 +132,7 @@ func (a *AdminClient) DeactivateUser(userID string, erase bool) error {
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
+		waitForLimiter(a.limiter)
 		req, err := http.NewRequest("POST", endpoint, bytes.NewReader(body))
 		if err != nil {
 			return fmt.Errorf("failed to create deactivate request: %w", err)
