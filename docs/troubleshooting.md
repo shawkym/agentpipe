@@ -231,6 +231,21 @@ matrix:
   rate_limit: 1.0  # Default pacing; safer than 0 for most Synapse setups
 ```
 
+### Issue: Admin join failed with `Content not JSON`
+
+**Symptoms:**
+```
+Error: matrix setup failed: matrix join failed for agent alice: join failed: HTTP 403: {"errcode":"M_FORBIDDEN","error":"You are not invited to this room."} (admin join failed: admin join failed: HTTP 400: {"errcode":"M_NOT_JSON","error":"Content not JSON."})
+```
+
+**Solutions:**
+
+1. **Upgrade to a version that sends JSON in admin join requests.**
+   Older builds posted an empty body, which newer Synapse versions reject.
+
+2. **If you cannot upgrade immediately, use a pre-created room that already invites all agents.**
+   This avoids the admin join path until you can update.
+
 ## Agent Communication Issues
 
 ### Issue: Agent CLI not found

@@ -197,19 +197,32 @@ func (a *AdminClient) JoinRoomForUser(roomIDOrAlias, userID string) (string, err
 
 	endpoint := fmt.Sprintf("%s/_synapse/admin/v1/join/%s", a.baseURL, url.PathEscape(roomIDOrAlias))
 	query := url.Values{}
-	query.Set("user_id", userID)
-	endpoint = endpoint + "?" + query.Encode()
+	if domain := extractRoomDomain(roomIDOrAlias); domain != "" {
+		query.Set("server_name", domain)
+	}
+	if encoded := query.Encode(); encoded != "" {
+		endpoint = endpoint + "?" + encoded
+	}
+
+	payload := map[string]interface{}{
+		"user_id": userID,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal admin join payload: %w", err)
+	}
 
 	const maxRetries = defaultRateLimitRetries
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		waitForLimiter(a.limiter, "admin_join")
-		req, err := http.NewRequest("POST", endpoint, nil)
+		req, err := http.NewRequest("POST", endpoint, bytes.NewReader(body))
 		if err != nil {
 			return "", fmt.Errorf("failed to create admin join request: %w", err)
 		}
 		a.addAuth(req)
+		req.Header.Set("Content-Type", "application/json")
 
 		resp, err := a.httpClient.Do(req)
 		if err != nil {
