@@ -66,35 +66,74 @@ func LoginWithPassword(baseURL, userID, password string, timeout time.Duration) 
 
 	client := &http.Client{Timeout: timeout}
 	endpoint := cleanBaseURL(baseURL) + "/_matrix/client/v3/login"
-	req, err := http.NewRequest("POST", endpoint, bytes.NewReader(body))
-	if err != nil {
-		return "", "", fmt.Errorf("failed to create login request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
+	const maxRetries = 3
+	var lastErr error
 
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", "", fmt.Errorf("login request failed: %w", err)
-	}
-	defer resp.Body.Close()
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		req, err := http.NewRequest("POST", endpoint, bytes.NewReader(body))
+		if err != nil {
+			return "", "", fmt.Errorf("failed to create login request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return "", "", fmt.Errorf("login failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
+		resp, err := client.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("login request failed: %w", err)
+		} else {
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+
+			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				var result struct {
+					AccessToken string `json:"access_token"`
+					UserID      string `json:"user_id"`
+				}
+				if err := json.Unmarshal(bodyBytes, &result); err != nil {
+					return "", "", fmt.Errorf("failed to parse login response: %w", err)
+				}
+				if result.AccessToken == "" {
+					return "", "", fmt.Errorf("login response missing access_token")
+				}
+				return result.AccessToken, result.UserID, nil
+			}
+
+			if resp.StatusCode == http.StatusTooManyRequests {
+				retryAfter := parseRetryAfter(bodyBytes)
+				if retryAfter > 0 && attempt < maxRetries {
+					time.Sleep(retryAfter)
+					continue
+				}
+			}
+
+			lastErr = fmt.Errorf("login failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
+		}
+
+		if attempt < maxRetries {
+			backoff := time.Duration(1<<attempt) * time.Second
+			time.Sleep(backoff)
+			continue
+		}
 	}
 
-	var result struct {
-		AccessToken string `json:"access_token"`
-		UserID      string `json:"user_id"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", "", fmt.Errorf("failed to parse login response: %w", err)
-	}
-	if result.AccessToken == "" {
-		return "", "", fmt.Errorf("login response missing access_token")
+	if lastErr != nil {
+		return "", "", lastErr
 	}
 
-	return result.AccessToken, result.UserID, nil
+	return "", "", fmt.Errorf("login failed after retries")
+}
+
+func parseRetryAfter(body []byte) time.Duration {
+	var payload struct {
+		ErrCode      string `json:"errcode"`
+		RetryAfterMs int    `json:"retry_after_ms"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return 0
+	}
+	if payload.ErrCode != "M_LIMIT_EXCEEDED" || payload.RetryAfterMs <= 0 {
+		return 0
+	}
+	return time.Duration(payload.RetryAfterMs) * time.Millisecond
 }
 
 // JoinRoom joins a room by ID or alias and returns the resolved room ID.

@@ -175,6 +175,9 @@ Use the `access_token` from the response as `MATRIX_ADMIN_TOKEN` or `matrix.admi
 
 Tip: You can skip the token and set `matrix.admin_user_id` + `matrix.admin_password` (or `MATRIX_ADMIN_USER`/`MATRIX_ADMIN_PASSWORD`) and AgentPipe will login automatically.
 
+Rate limits:
+- If Synapse returns `M_LIMIT_EXCEEDED`, AgentPipe will honor `retry_after_ms` and retry logins automatically.
+
 Example:
 - `examples/matrix-auto-provision.yaml` - Auto-provisioned Matrix users
 
