@@ -49,6 +49,7 @@ func (c *Client) WhoAmI() (string, error) {
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		waitForPacer(c.pacer, "whoami")
+		retryable := false
 		req, err := http.NewRequest("GET", endpoint, nil)
 		if err != nil {
 			return "", fmt.Errorf("failed to create whoami request: %w", err)
@@ -58,6 +59,7 @@ func (c *Client) WhoAmI() (string, error) {
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("whoami request failed: %w", err)
+			retryable = true
 		} else {
 			bodyBytes, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
@@ -83,13 +85,17 @@ func (c *Client) WhoAmI() (string, error) {
 				}
 			}
 
+			retryable = shouldRetryStatus(resp.StatusCode)
 			lastErr = fmt.Errorf("whoami failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
 		}
 
 		if attempt < maxRetries {
-			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithPacer(c.pacer, "whoami", "backoff", backoff)
-			continue
+			if retryable {
+				backoff := time.Duration(1<<attempt) * time.Second
+				sleepWithPacer(c.pacer, "whoami", "backoff", backoff)
+				continue
+			}
+			return "", lastErr
 		}
 	}
 
@@ -132,6 +138,7 @@ func LoginWithPassword(baseURL, userID, password string, timeout time.Duration, 
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		waitForPacer(pacer, "login")
+		retryable := false
 		req, err := http.NewRequest("POST", endpoint, bytes.NewReader(body))
 		if err != nil {
 			return "", "", fmt.Errorf("failed to create login request: %w", err)
@@ -141,6 +148,7 @@ func LoginWithPassword(baseURL, userID, password string, timeout time.Duration, 
 		resp, err := client.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("login request failed: %w", err)
+			retryable = true
 		} else {
 			bodyBytes, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
@@ -167,13 +175,17 @@ func LoginWithPassword(baseURL, userID, password string, timeout time.Duration, 
 				}
 			}
 
+			retryable = shouldRetryStatus(resp.StatusCode)
 			lastErr = fmt.Errorf("login failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
 		}
 
 		if attempt < maxRetries {
-			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithPacer(pacer, "login", "backoff", backoff)
-			continue
+			if retryable {
+				backoff := time.Duration(1<<attempt) * time.Second
+				sleepWithPacer(pacer, "login", "backoff", backoff)
+				continue
+			}
+			return "", "", lastErr
 		}
 	}
 
@@ -202,6 +214,7 @@ func (c *Client) JoinRoom(room string) (string, error) {
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		waitForPacer(c.pacer, "join")
+		retryable := false
 		req, err := http.NewRequest("POST", endpoint, nil)
 		if err != nil {
 			return "", fmt.Errorf("failed to create join request: %w", err)
@@ -211,6 +224,7 @@ func (c *Client) JoinRoom(room string) (string, error) {
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("join request failed: %w", err)
+			retryable = true
 		} else {
 			bodyBytes, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
@@ -236,13 +250,17 @@ func (c *Client) JoinRoom(room string) (string, error) {
 				}
 			}
 
+			retryable = shouldRetryStatus(resp.StatusCode)
 			lastErr = fmt.Errorf("join failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
 		}
 
 		if attempt < maxRetries {
-			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithPacer(c.pacer, "join", "backoff", backoff)
-			continue
+			if retryable {
+				backoff := time.Duration(1<<attempt) * time.Second
+				sleepWithPacer(c.pacer, "join", "backoff", backoff)
+				continue
+			}
+			return "", lastErr
 		}
 	}
 
@@ -288,6 +306,7 @@ func (c *Client) SendMessage(roomID, body string) error {
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		waitForPacer(c.pacer, "send")
+		retryable := false
 		req, err := http.NewRequest("PUT", endpoint, bytes.NewReader(data))
 		if err != nil {
 			return fmt.Errorf("failed to create send request: %w", err)
@@ -298,6 +317,7 @@ func (c *Client) SendMessage(roomID, body string) error {
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("send request failed: %w", err)
+			retryable = true
 		} else {
 			bodyBytes, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
@@ -314,13 +334,17 @@ func (c *Client) SendMessage(roomID, body string) error {
 				}
 			}
 
+			retryable = shouldRetryStatus(resp.StatusCode)
 			lastErr = fmt.Errorf("send failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
 		}
 
 		if attempt < maxRetries {
-			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithPacer(c.pacer, "send", "backoff", backoff)
-			continue
+			if retryable {
+				backoff := time.Duration(1<<attempt) * time.Second
+				sleepWithPacer(c.pacer, "send", "backoff", backoff)
+				continue
+			}
+			return lastErr
 		}
 	}
 
@@ -356,6 +380,7 @@ func (c *Client) CreateRoomWithInvites(name string, invites []string) (string, e
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		waitForPacer(c.pacer, "create_room")
+		retryable := false
 		req, err := http.NewRequest("POST", endpoint, bytes.NewReader(data))
 		if err != nil {
 			return "", fmt.Errorf("failed to create createRoom request: %w", err)
@@ -366,6 +391,7 @@ func (c *Client) CreateRoomWithInvites(name string, invites []string) (string, e
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("create room request failed: %w", err)
+			retryable = true
 		} else {
 			bodyBytes, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
@@ -391,13 +417,17 @@ func (c *Client) CreateRoomWithInvites(name string, invites []string) (string, e
 				}
 			}
 
+			retryable = shouldRetryStatus(resp.StatusCode)
 			lastErr = fmt.Errorf("create room failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
 		}
 
 		if attempt < maxRetries {
-			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithPacer(c.pacer, "create_room", "backoff", backoff)
-			continue
+			if retryable {
+				backoff := time.Duration(1<<attempt) * time.Second
+				sleepWithPacer(c.pacer, "create_room", "backoff", backoff)
+				continue
+			}
+			return "", lastErr
 		}
 	}
 
@@ -428,6 +458,7 @@ func (c *Client) Sync(since string, timeout time.Duration, filter string) (*Sync
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		waitForPacer(c.pacer, "sync")
+		retryable := false
 		req, err := http.NewRequest("GET", endpoint+"?"+params.Encode(), nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create sync request: %w", err)
@@ -437,6 +468,7 @@ func (c *Client) Sync(since string, timeout time.Duration, filter string) (*Sync
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("sync request failed: %w", err)
+			retryable = true
 		} else {
 			bodyBytes, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
@@ -457,13 +489,17 @@ func (c *Client) Sync(since string, timeout time.Duration, filter string) (*Sync
 				}
 			}
 
+			retryable = shouldRetryStatus(resp.StatusCode)
 			lastErr = fmt.Errorf("sync failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
 		}
 
 		if attempt < maxRetries {
-			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithPacer(c.pacer, "sync", "backoff", backoff)
-			continue
+			if retryable {
+				backoff := time.Duration(1<<attempt) * time.Second
+				sleepWithPacer(c.pacer, "sync", "backoff", backoff)
+				continue
+			}
+			return nil, lastErr
 		}
 	}
 

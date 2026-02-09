@@ -68,6 +68,7 @@ func (a *AdminClient) CreateOrUpdateUser(userID, password, displayName string, a
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		waitForPacer(a.pacer, "admin_create_user")
+		retryable := false
 		req, err := http.NewRequest("PUT", endpoint, bytes.NewReader(body))
 		if err != nil {
 			return fmt.Errorf("failed to create admin request: %w", err)
@@ -78,6 +79,7 @@ func (a *AdminClient) CreateOrUpdateUser(userID, password, displayName string, a
 		resp, err := a.httpClient.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("create user request failed: %w", err)
+			retryable = true
 		} else {
 			bodyBytes, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
@@ -100,13 +102,17 @@ func (a *AdminClient) CreateOrUpdateUser(userID, password, displayName string, a
 				}
 			}
 
+			retryable = shouldRetryStatus(resp.StatusCode)
 			lastErr = fmt.Errorf("create user failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
 		}
 
 		if attempt < maxRetries {
-			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithPacer(a.pacer, "admin_create_user", "backoff", backoff)
-			continue
+			if retryable {
+				backoff := time.Duration(1<<attempt) * time.Second
+				sleepWithPacer(a.pacer, "admin_create_user", "backoff", backoff)
+				continue
+			}
+			return lastErr
 		}
 	}
 
@@ -138,6 +144,7 @@ func (a *AdminClient) DeactivateUser(userID string, erase bool) error {
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		waitForPacer(a.pacer, "admin_deactivate_user")
+		retryable := false
 		req, err := http.NewRequest("POST", endpoint, bytes.NewReader(body))
 		if err != nil {
 			return fmt.Errorf("failed to create deactivate request: %w", err)
@@ -148,6 +155,7 @@ func (a *AdminClient) DeactivateUser(userID string, erase bool) error {
 		resp, err := a.httpClient.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("deactivate request failed: %w", err)
+			retryable = true
 		} else {
 			bodyBytes, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
@@ -167,13 +175,17 @@ func (a *AdminClient) DeactivateUser(userID string, erase bool) error {
 				}
 			}
 
+			retryable = shouldRetryStatus(resp.StatusCode)
 			lastErr = fmt.Errorf("deactivate failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
 		}
 
 		if attempt < maxRetries {
-			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithPacer(a.pacer, "admin_deactivate_user", "backoff", backoff)
-			continue
+			if retryable {
+				backoff := time.Duration(1<<attempt) * time.Second
+				sleepWithPacer(a.pacer, "admin_deactivate_user", "backoff", backoff)
+				continue
+			}
+			return lastErr
 		}
 	}
 
@@ -215,6 +227,7 @@ func (a *AdminClient) JoinRoomForUser(roomIDOrAlias, userID string) (string, err
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		waitForPacer(a.pacer, "admin_join")
+		retryable := false
 		req, err := http.NewRequest("POST", endpoint, bytes.NewReader(body))
 		if err != nil {
 			return "", fmt.Errorf("failed to create admin join request: %w", err)
@@ -225,6 +238,7 @@ func (a *AdminClient) JoinRoomForUser(roomIDOrAlias, userID string) (string, err
 		resp, err := a.httpClient.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("admin join request failed: %w", err)
+			retryable = true
 		} else {
 			bodyBytes, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
@@ -250,13 +264,17 @@ func (a *AdminClient) JoinRoomForUser(roomIDOrAlias, userID string) (string, err
 				}
 			}
 
+			retryable = shouldRetryStatus(resp.StatusCode)
 			lastErr = fmt.Errorf("admin join failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
 		}
 
 		if attempt < maxRetries {
-			backoff := time.Duration(1<<attempt) * time.Second
-			sleepWithPacer(a.pacer, "admin_join", "backoff", backoff)
-			continue
+			if retryable {
+				backoff := time.Duration(1<<attempt) * time.Second
+				sleepWithPacer(a.pacer, "admin_join", "backoff", backoff)
+				continue
+			}
+			return "", lastErr
 		}
 	}
 

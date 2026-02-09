@@ -73,6 +73,13 @@ func capRetryAfter(d time.Duration) time.Duration {
 	return d
 }
 
+func shouldRetryStatus(status int) bool {
+	if status == http.StatusTooManyRequests || status == http.StatusRequestTimeout {
+		return true
+	}
+	return status >= 500
+}
+
 func sleepWithPacer(pacer *Pacer, call, reason string, d time.Duration) {
 	if d <= 0 {
 		return
