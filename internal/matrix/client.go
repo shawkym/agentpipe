@@ -39,6 +39,64 @@ func (c *Client) UserID() string {
 	return c.userID
 }
 
+// WhoAmI returns the user_id associated with the access token.
+func (c *Client) WhoAmI() (string, error) {
+	endpoint := c.baseURL + "/_matrix/client/v3/account/whoami"
+	const maxRetries = defaultRateLimitRetries
+	var lastErr error
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		req, err := http.NewRequest("GET", endpoint, nil)
+		if err != nil {
+			return "", fmt.Errorf("failed to create whoami request: %w", err)
+		}
+		c.addAuth(req)
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("whoami request failed: %w", err)
+		} else {
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+
+			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				var result struct {
+					UserID string `json:"user_id"`
+				}
+				if err := json.Unmarshal(bodyBytes, &result); err != nil {
+					return "", fmt.Errorf("failed to parse whoami response: %w", err)
+				}
+				if result.UserID == "" {
+					return "", fmt.Errorf("whoami response missing user_id")
+				}
+				return result.UserID, nil
+			}
+
+			if resp.StatusCode == http.StatusTooManyRequests {
+				retryAfter := capRetryAfter(parseRetryAfter(bodyBytes))
+				if retryAfter > 0 && attempt < maxRetries {
+					time.Sleep(retryAfter)
+					continue
+				}
+			}
+
+			lastErr = fmt.Errorf("whoami failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
+		}
+
+		if attempt < maxRetries {
+			backoff := time.Duration(1<<attempt) * time.Second
+			time.Sleep(backoff)
+			continue
+		}
+	}
+
+	if lastErr != nil {
+		return "", lastErr
+	}
+
+	return "", fmt.Errorf("whoami failed after retries")
+}
+
 // AccessToken returns the access token for this client.
 func (c *Client) AccessToken() string {
 	return c.accessToken
@@ -243,9 +301,17 @@ func (c *Client) SendMessage(roomID, body string) error {
 
 // CreateRoom creates a new room and returns its room ID.
 func (c *Client) CreateRoom(name string) (string, error) {
+	return c.CreateRoomWithInvites(name, nil)
+}
+
+// CreateRoomWithInvites creates a new room with optional invites and returns its room ID.
+func (c *Client) CreateRoomWithInvites(name string, invites []string) (string, error) {
 	endpoint := c.baseURL + "/_matrix/client/v3/createRoom"
 	payload := map[string]interface{}{
 		"name": name,
+	}
+	if len(invites) > 0 {
+		payload["invite"] = invites
 	}
 
 	data, err := json.Marshal(payload)

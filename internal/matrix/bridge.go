@@ -26,6 +26,7 @@ type Bridge struct {
 	roomID       string
 	agentClients map[string]*Client // agent ID -> Matrix client
 	listener     *Client
+	adminUser    *Client
 	knownSenders map[string]struct{}
 	adminClient  *AdminClient
 	createdUsers []string
@@ -221,6 +222,19 @@ func (b *Bridge) autoProvision(agents []agent.AgentConfig) error {
 	b.cleanup = resolveCleanup(b.cfg)
 	b.eraseCleanup = resolveEraseCleanup(b.cfg)
 
+	adminUserID := normalizeUserID(adminUser, serverName)
+	if adminUserID == "" {
+		lookup := NewClient(homeserver, adminToken, "", 15*time.Second)
+		if who, err := lookup.WhoAmI(); err == nil {
+			adminUserID = who
+		} else {
+			log.WithError(err).Warn("matrix admin whoami failed")
+		}
+	}
+	if adminUserID != "" {
+		b.adminUser = NewClient(homeserver, adminToken, adminUserID, 15*time.Second)
+	}
+
 	// Create listener user
 	listenerUserID := buildUserID(userPrefix+"-listener", serverName)
 	listenerPassword := randomPassword()
@@ -257,7 +271,11 @@ func (b *Bridge) autoProvision(agents []agent.AgentConfig) error {
 	room := resolveRoom(b.cfg)
 	if room == "" {
 		roomName := fmt.Sprintf("AgentPipe %s", time.Now().Format("20060102-150405"))
-		roomID, err := b.listener.CreateRoom(roomName)
+		invites := []string{}
+		if adminUserID != "" && adminUserID != b.listener.UserID() {
+			invites = append(invites, adminUserID)
+		}
+		roomID, err := b.listener.CreateRoomWithInvites(roomName, invites)
 		if err != nil {
 			return fmt.Errorf("matrix room creation failed: %w", err)
 		}
@@ -270,6 +288,12 @@ func (b *Bridge) autoProvision(agents []agent.AgentConfig) error {
 		return fmt.Errorf("matrix join failed for listener: %w", err)
 	}
 	b.roomID = listenerRoomID
+
+	if b.adminUser != nil {
+		if _, err := b.adminUser.JoinRoom(room); err != nil {
+			log.WithError(err).WithField("user_id", b.adminUser.UserID()).Warn("matrix admin join failed")
+		}
+	}
 
 	for agentID, client := range b.agentClients {
 		if _, err := client.JoinRoom(room); err != nil {
@@ -458,6 +482,28 @@ func resolveServerName(cfg config.MatrixConfig, homeserver string) string {
 	return "localhost"
 }
 
+func normalizeUserID(user, serverName string) string {
+	trimmed := strings.TrimSpace(user)
+	if trimmed == "" {
+		return ""
+	}
+	if strings.Contains(trimmed, ":") {
+		if strings.HasPrefix(trimmed, "@") {
+			return trimmed
+		}
+		return "@" + trimmed
+	}
+
+	localpart := strings.TrimPrefix(trimmed, "@")
+	if localpart == "" {
+		return ""
+	}
+	if serverName == "" {
+		return "@" + localpart
+	}
+	return fmt.Sprintf("@%s:%s", localpart, serverName)
+}
+
 func resolveCleanup(cfg config.MatrixConfig) bool {
 	if cfg.Cleanup != nil {
 		return *cfg.Cleanup
@@ -469,7 +515,7 @@ func resolveEraseCleanup(cfg config.MatrixConfig) bool {
 	if cfg.EraseOnCleanup != nil {
 		return *cfg.EraseOnCleanup
 	}
-	return true
+	return false
 }
 
 func buildUserID(base, serverName string) string {

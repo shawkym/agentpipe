@@ -175,6 +175,8 @@ Use the `access_token` from the response as `MATRIX_ADMIN_TOKEN` or `matrix.admi
 
 Tip: You can skip the token and set `matrix.admin_user_id` + `matrix.admin_password` (or `MATRIX_ADMIN_USER`/`MATRIX_ADMIN_PASSWORD`) and AgentPipe will login automatically.
 
+If `matrix.admin_user_id` (or `MATRIX_ADMIN_USER`) is set, AgentPipe will invite and join that admin account to any auto-created room. If it is not set, AgentPipe will try to resolve the admin user via `/_matrix/client/v3/account/whoami` using the admin token.
+
 Rate limits:
 - If Synapse returns `M_LIMIT_EXCEEDED`, AgentPipe will honor `retry_after_ms` and retry logins automatically.
 - Auto-provisioning also retries user creation and room joins when rate limited.

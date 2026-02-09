@@ -107,7 +107,7 @@ type MatrixConfig struct {
 	UserPrefix string `yaml:"user_prefix"`
 	// Cleanup removes auto-provisioned users on shutdown (default: true)
 	Cleanup *bool `yaml:"cleanup"`
-	// EraseOnCleanup marks users as GDPR-erased when deactivating (default: true)
+	// EraseOnCleanup marks users as GDPR-erased when deactivating (default: false)
 	EraseOnCleanup *bool `yaml:"erase_on_cleanup"`
 	// Listener defines the Matrix user used to listen for inbound messages
 	Listener agent.MatrixUserConfig `yaml:"listener"`
