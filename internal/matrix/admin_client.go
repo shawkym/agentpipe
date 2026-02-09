@@ -3,6 +3,7 @@ package matrix
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,6 +17,9 @@ type AdminClient struct {
 	accessToken string
 	httpClient  *http.Client
 }
+
+// ErrInvalidAdminToken indicates the admin token is invalid.
+var ErrInvalidAdminToken = errors.New("matrix admin access token invalid")
 
 // NewAdminClient creates a new admin client for the given homeserver.
 func NewAdminClient(baseURL, accessToken string, timeout time.Duration) *AdminClient {
@@ -68,6 +72,9 @@ func (a *AdminClient) CreateOrUpdateUser(userID, password, displayName string, a
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		bodyBytes, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode == http.StatusUnauthorized && isUnknownToken(bodyBytes) {
+			return ErrInvalidAdminToken
+		}
 		return fmt.Errorf("create user failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
@@ -105,6 +112,9 @@ func (a *AdminClient) DeactivateUser(userID string, erase bool) error {
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		bodyBytes, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode == http.StatusUnauthorized && isUnknownToken(bodyBytes) {
+			return ErrInvalidAdminToken
+		}
 		return fmt.Errorf("deactivate failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
@@ -115,4 +125,19 @@ func (a *AdminClient) addAuth(req *http.Request) {
 	if a.accessToken != "" {
 		req.Header.Set("Authorization", "Bearer "+a.accessToken)
 	}
+}
+
+// SetAccessToken updates the admin access token.
+func (a *AdminClient) SetAccessToken(token string) {
+	a.accessToken = token
+}
+
+func isUnknownToken(body []byte) bool {
+	var payload struct {
+		ErrCode string `json:"errcode"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return false
+	}
+	return payload.ErrCode == "M_UNKNOWN_TOKEN"
 }

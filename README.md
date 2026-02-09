@@ -152,8 +152,28 @@ You can also provide these via environment variables:
 - `MATRIX_SERVER_NAME`
 - `MATRIX_ROOM`
 - `MATRIX_ADMIN_TOKEN`
+- `MATRIX_ADMIN_USER`
+- `MATRIX_ADMIN_PASSWORD`
 
 If `MATRIX_ADMIN_TOKEN` is set, AgentPipe will auto-provision even if `auto_provision` is not specified.
+
+#### Getting a Synapse Admin Token
+1. Ensure you have a Matrix admin user on your Synapse instance.
+2. Login to get an access token:
+
+```bash
+curl -s -XPOST http://localhost:8008/_matrix/client/v3/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type":"m.login.password",
+    "identifier":{"type":"m.id.user","user":"admin"},
+    "password":"YOUR_ADMIN_PASSWORD"
+  }'
+```
+
+Use the `access_token` from the response as `MATRIX_ADMIN_TOKEN` or `matrix.admin_access_token`.
+
+Tip: You can skip the token and set `matrix.admin_user_id` + `matrix.admin_password` (or `MATRIX_ADMIN_USER`/`MATRIX_ADMIN_PASSWORD`) and AgentPipe will login automatically.
 
 Example:
 - `examples/matrix-auto-provision.yaml` - Auto-provisioned Matrix users

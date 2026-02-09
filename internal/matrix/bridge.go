@@ -195,6 +195,16 @@ func (b *Bridge) sendMessage(msg agent.Message) error {
 func (b *Bridge) autoProvision(agents []agent.AgentConfig) error {
 	homeserver := resolveHomeserver(b.cfg)
 	adminToken := resolveAdminToken(b.cfg)
+	adminUser, adminPassword := resolveAdminCredentials(b.cfg)
+	if adminToken == "" {
+		if adminUser != "" && adminPassword != "" {
+			token, _, err := LoginWithPassword(homeserver, adminUser, adminPassword, 15*time.Second)
+			if err != nil {
+				return fmt.Errorf("matrix admin login failed: %w", err)
+			}
+			adminToken = token
+		}
+	}
 	if adminToken == "" {
 		return fmt.Errorf("matrix admin access token is required for auto-provisioning")
 	}
@@ -214,7 +224,7 @@ func (b *Bridge) autoProvision(agents []agent.AgentConfig) error {
 	// Create listener user
 	listenerUserID := buildUserID(userPrefix+"-listener", serverName)
 	listenerPassword := randomPassword()
-	if err := adminClient.CreateOrUpdateUser(listenerUserID, listenerPassword, "AgentPipe Listener", false); err != nil {
+	if err := b.createUserWithRetry(adminClient, homeserver, listenerUserID, listenerPassword, "AgentPipe Listener"); err != nil {
 		return fmt.Errorf("matrix listener creation failed: %w", err)
 	}
 	b.createdUsers = append(b.createdUsers, listenerUserID)
@@ -230,7 +240,7 @@ func (b *Bridge) autoProvision(agents []agent.AgentConfig) error {
 		base := fmt.Sprintf("%s-%s", userPrefix, sanitizeLocalpart(agentCfg.ID))
 		userID := buildUserID(base, serverName)
 		password := randomPassword()
-		if err := adminClient.CreateOrUpdateUser(userID, password, agentCfg.Name, false); err != nil {
+		if err := b.createUserWithRetry(adminClient, homeserver, userID, password, agentCfg.Name); err != nil {
 			return fmt.Errorf("matrix user creation failed for agent %s: %w", agentCfg.ID, err)
 		}
 		b.createdUsers = append(b.createdUsers, userID)
@@ -501,4 +511,38 @@ func randomToken(length int) string {
 		return fmt.Sprintf("agentpipe-%d", time.Now().UnixNano())
 	}
 	return hex.EncodeToString(b)
+}
+
+func resolveAdminCredentials(cfg config.MatrixConfig) (string, string) {
+	user := cfg.AdminUserID
+	if user == "" {
+		user = os.Getenv("MATRIX_ADMIN_USER")
+	}
+	password := cfg.AdminPassword
+	if password == "" {
+		password = os.Getenv("MATRIX_ADMIN_PASSWORD")
+	}
+	return user, password
+}
+
+func (b *Bridge) createUserWithRetry(adminClient *AdminClient, homeserver, userID, password, displayName string) error {
+	err := adminClient.CreateOrUpdateUser(userID, password, displayName, false)
+	if err == nil {
+		return nil
+	}
+
+	if err == ErrInvalidAdminToken {
+		adminUser, adminPassword := resolveAdminCredentials(b.cfg)
+		if adminUser == "" || adminPassword == "" {
+			return fmt.Errorf("invalid admin token; provide admin_access_token or admin_user_id/admin_password")
+		}
+		token, _, loginErr := LoginWithPassword(homeserver, adminUser, adminPassword, 15*time.Second)
+		if loginErr != nil {
+			return fmt.Errorf("matrix admin login failed: %w", loginErr)
+		}
+		adminClient.SetAccessToken(token)
+		return adminClient.CreateOrUpdateUser(userID, password, displayName, false)
+	}
+
+	return err
 }

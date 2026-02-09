@@ -99,6 +99,10 @@ type MatrixConfig struct {
 	SyncTimeoutMs int `yaml:"sync_timeout_ms"`
 	// AdminAccessToken is the Synapse admin access token (required for auto-provision)
 	AdminAccessToken string `yaml:"admin_access_token"`
+	// AdminUserID is the Matrix admin user for auto-provisioning (optional, used to login)
+	AdminUserID string `yaml:"admin_user_id"`
+	// AdminPassword is the Matrix admin password for auto-provisioning (optional, used to login)
+	AdminPassword string `yaml:"admin_password"`
 	// UserPrefix is the prefix for auto-provisioned users (default: "agentpipe")
 	UserPrefix string `yaml:"user_prefix"`
 	// Cleanup removes auto-provisioned users on shutdown (default: true)
@@ -234,10 +238,18 @@ func (c *Config) Validate() error {
 		if adminToken == "" {
 			adminToken = os.Getenv("MATRIX_ADMIN_TOKEN")
 		}
+		adminUser := c.Matrix.AdminUserID
+		if adminUser == "" {
+			adminUser = os.Getenv("MATRIX_ADMIN_USER")
+		}
+		adminPassword := c.Matrix.AdminPassword
+		if adminPassword == "" {
+			adminPassword = os.Getenv("MATRIX_ADMIN_PASSWORD")
+		}
 
-		if c.Matrix.AutoProvision || adminToken != "" {
-			if adminToken == "" {
-				return fmt.Errorf("matrix.admin_access_token or MATRIX_ADMIN_TOKEN is required for auto-provisioning")
+		if c.Matrix.AutoProvision || adminToken != "" || (adminUser != "" && adminPassword != "") {
+			if adminToken == "" && (adminUser == "" || adminPassword == "") {
+				return fmt.Errorf("matrix admin access is required for auto-provisioning (set admin_access_token or admin_user_id/admin_password)")
 			}
 		} else {
 			if c.Matrix.Homeserver == "" {
@@ -328,8 +340,21 @@ func (c *Config) applyDefaults() {
 			c.Matrix.AdminAccessToken = env
 		}
 	}
+	if c.Matrix.AdminUserID == "" {
+		if env := os.Getenv("MATRIX_ADMIN_USER"); env != "" {
+			c.Matrix.AdminUserID = env
+		}
+	}
+	if c.Matrix.AdminPassword == "" {
+		if env := os.Getenv("MATRIX_ADMIN_PASSWORD"); env != "" {
+			c.Matrix.AdminPassword = env
+		}
+	}
 	if c.Matrix.AdminAccessToken != "" {
 		// Prefer auto-provisioning when admin token is available
+		c.Matrix.AutoProvision = true
+	}
+	if c.Matrix.AdminUserID != "" && c.Matrix.AdminPassword != "" {
 		c.Matrix.AutoProvision = true
 	}
 	if c.Matrix.Cleanup == nil {
