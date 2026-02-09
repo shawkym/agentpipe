@@ -177,6 +177,7 @@ Tip: You can skip the token and set `matrix.admin_user_id` + `matrix.admin_passw
 
 Rate limits:
 - If Synapse returns `M_LIMIT_EXCEEDED`, AgentPipe will honor `retry_after_ms` and retry logins automatically.
+- Auto-provisioning also retries user creation and room joins when rate limited.
 
 Example:
 - `examples/matrix-auto-provision.yaml` - Auto-provisioned Matrix users

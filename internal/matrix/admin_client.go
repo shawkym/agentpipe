@@ -57,28 +57,54 @@ func (a *AdminClient) CreateOrUpdateUser(userID, password, displayName string, a
 		return fmt.Errorf("failed to marshal create user payload: %w", err)
 	}
 
-	req, err := http.NewRequest("PUT", endpoint, bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("failed to create admin request: %w", err)
-	}
-	a.addAuth(req)
-	req.Header.Set("Content-Type", "application/json")
+	const maxRetries = defaultRateLimitRetries
+	var lastErr error
 
-	resp, err := a.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("create user request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		if resp.StatusCode == http.StatusUnauthorized && isUnknownToken(bodyBytes) {
-			return ErrInvalidAdminToken
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		req, err := http.NewRequest("PUT", endpoint, bytes.NewReader(body))
+		if err != nil {
+			return fmt.Errorf("failed to create admin request: %w", err)
 		}
-		return fmt.Errorf("create user failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
+		a.addAuth(req)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := a.httpClient.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("create user request failed: %w", err)
+		} else {
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+
+			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				return nil
+			}
+
+			if resp.StatusCode == http.StatusUnauthorized && isUnknownToken(bodyBytes) {
+				return ErrInvalidAdminToken
+			}
+			if resp.StatusCode == http.StatusTooManyRequests {
+				retryAfter := capRetryAfter(parseRetryAfter(bodyBytes))
+				if retryAfter > 0 && attempt < maxRetries {
+					time.Sleep(retryAfter)
+					continue
+				}
+			}
+
+			lastErr = fmt.Errorf("create user failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
+		}
+
+		if attempt < maxRetries {
+			backoff := time.Duration(1<<attempt) * time.Second
+			time.Sleep(backoff)
+			continue
+		}
 	}
 
-	return nil
+	if lastErr != nil {
+		return lastErr
+	}
+
+	return fmt.Errorf("create user failed after retries")
 }
 
 // DeactivateUser deactivates a user via the admin API.
@@ -97,28 +123,54 @@ func (a *AdminClient) DeactivateUser(userID string, erase bool) error {
 		return fmt.Errorf("failed to marshal deactivate payload: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", endpoint, bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("failed to create deactivate request: %w", err)
-	}
-	a.addAuth(req)
-	req.Header.Set("Content-Type", "application/json")
+	const maxRetries = defaultRateLimitRetries
+	var lastErr error
 
-	resp, err := a.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("deactivate request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		if resp.StatusCode == http.StatusUnauthorized && isUnknownToken(bodyBytes) {
-			return ErrInvalidAdminToken
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		req, err := http.NewRequest("POST", endpoint, bytes.NewReader(body))
+		if err != nil {
+			return fmt.Errorf("failed to create deactivate request: %w", err)
 		}
-		return fmt.Errorf("deactivate failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
+		a.addAuth(req)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := a.httpClient.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("deactivate request failed: %w", err)
+		} else {
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+
+			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				return nil
+			}
+
+			if resp.StatusCode == http.StatusUnauthorized && isUnknownToken(bodyBytes) {
+				return ErrInvalidAdminToken
+			}
+			if resp.StatusCode == http.StatusTooManyRequests {
+				retryAfter := capRetryAfter(parseRetryAfter(bodyBytes))
+				if retryAfter > 0 && attempt < maxRetries {
+					time.Sleep(retryAfter)
+					continue
+				}
+			}
+
+			lastErr = fmt.Errorf("deactivate failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
+		}
+
+		if attempt < maxRetries {
+			backoff := time.Duration(1<<attempt) * time.Second
+			time.Sleep(backoff)
+			continue
+		}
 	}
 
-	return nil
+	if lastErr != nil {
+		return lastErr
+	}
+
+	return fmt.Errorf("deactivate failed after retries")
 }
 
 func (a *AdminClient) addAuth(req *http.Request) {

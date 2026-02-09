@@ -66,7 +66,7 @@ func LoginWithPassword(baseURL, userID, password string, timeout time.Duration) 
 
 	client := &http.Client{Timeout: timeout}
 	endpoint := cleanBaseURL(baseURL) + "/_matrix/client/v3/login"
-	const maxRetries = 3
+	const maxRetries = defaultRateLimitRetries
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
@@ -98,7 +98,7 @@ func LoginWithPassword(baseURL, userID, password string, timeout time.Duration) 
 			}
 
 			if resp.StatusCode == http.StatusTooManyRequests {
-				retryAfter := parseRetryAfter(bodyBytes)
+				retryAfter := capRetryAfter(parseRetryAfter(bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
 					time.Sleep(retryAfter)
 					continue
@@ -122,20 +122,6 @@ func LoginWithPassword(baseURL, userID, password string, timeout time.Duration) 
 	return "", "", fmt.Errorf("login failed after retries")
 }
 
-func parseRetryAfter(body []byte) time.Duration {
-	var payload struct {
-		ErrCode      string `json:"errcode"`
-		RetryAfterMs int    `json:"retry_after_ms"`
-	}
-	if err := json.Unmarshal(body, &payload); err != nil {
-		return 0
-	}
-	if payload.ErrCode != "M_LIMIT_EXCEEDED" || payload.RetryAfterMs <= 0 {
-		return 0
-	}
-	return time.Duration(payload.RetryAfterMs) * time.Millisecond
-}
-
 // JoinRoom joins a room by ID or alias and returns the resolved room ID.
 func (c *Client) JoinRoom(room string) (string, error) {
 	if room == "" {
@@ -148,34 +134,60 @@ func (c *Client) JoinRoom(room string) (string, error) {
 		query.Add("server_name", domain)
 		endpoint = endpoint + "?" + query.Encode()
 	}
-	req, err := http.NewRequest("POST", endpoint, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to create join request: %w", err)
-	}
-	c.addAuth(req)
 
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("join request failed: %w", err)
-	}
-	defer resp.Body.Close()
+	const maxRetries = defaultRateLimitRetries
+	var lastErr error
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("join failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		req, err := http.NewRequest("POST", endpoint, nil)
+		if err != nil {
+			return "", fmt.Errorf("failed to create join request: %w", err)
+		}
+		c.addAuth(req)
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("join request failed: %w", err)
+		} else {
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+
+			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				var result struct {
+					RoomID string `json:"room_id"`
+				}
+				if err := json.Unmarshal(bodyBytes, &result); err != nil {
+					return "", fmt.Errorf("failed to parse join response: %w", err)
+				}
+				if result.RoomID == "" {
+					return "", fmt.Errorf("join response missing room_id")
+				}
+				return result.RoomID, nil
+			}
+
+			if resp.StatusCode == http.StatusTooManyRequests {
+				retryAfter := capRetryAfter(parseRetryAfter(bodyBytes))
+				if retryAfter > 0 && attempt < maxRetries {
+					time.Sleep(retryAfter)
+					continue
+				}
+			}
+
+			lastErr = fmt.Errorf("join failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
+		}
+
+		if attempt < maxRetries {
+			backoff := time.Duration(1<<attempt) * time.Second
+			time.Sleep(backoff)
+			continue
+		}
 	}
 
-	var result struct {
-		RoomID string `json:"room_id"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("failed to parse join response: %w", err)
-	}
-	if result.RoomID == "" {
-		return "", fmt.Errorf("join response missing room_id")
+	if lastErr != nil {
+		return "", lastErr
 	}
 
-	return result.RoomID, nil
+	return "", fmt.Errorf("join failed after retries")
 }
 
 func extractRoomDomain(room string) string {
@@ -241,35 +253,60 @@ func (c *Client) CreateRoom(name string) (string, error) {
 		return "", fmt.Errorf("failed to marshal create room payload: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", endpoint, bytes.NewReader(data))
-	if err != nil {
-		return "", fmt.Errorf("failed to create createRoom request: %w", err)
-	}
-	c.addAuth(req)
-	req.Header.Set("Content-Type", "application/json")
+	const maxRetries = defaultRateLimitRetries
+	var lastErr error
 
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("create room request failed: %w", err)
-	}
-	defer resp.Body.Close()
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		req, err := http.NewRequest("POST", endpoint, bytes.NewReader(data))
+		if err != nil {
+			return "", fmt.Errorf("failed to create createRoom request: %w", err)
+		}
+		c.addAuth(req)
+		req.Header.Set("Content-Type", "application/json")
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("create room failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("create room request failed: %w", err)
+		} else {
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+
+			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				var result struct {
+					RoomID string `json:"room_id"`
+				}
+				if err := json.Unmarshal(bodyBytes, &result); err != nil {
+					return "", fmt.Errorf("failed to parse createRoom response: %w", err)
+				}
+				if result.RoomID == "" {
+					return "", fmt.Errorf("createRoom response missing room_id")
+				}
+				return result.RoomID, nil
+			}
+
+			if resp.StatusCode == http.StatusTooManyRequests {
+				retryAfter := capRetryAfter(parseRetryAfter(bodyBytes))
+				if retryAfter > 0 && attempt < maxRetries {
+					time.Sleep(retryAfter)
+					continue
+				}
+			}
+
+			lastErr = fmt.Errorf("create room failed: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
+		}
+
+		if attempt < maxRetries {
+			backoff := time.Duration(1<<attempt) * time.Second
+			time.Sleep(backoff)
+			continue
+		}
 	}
 
-	var result struct {
-		RoomID string `json:"room_id"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("failed to parse createRoom response: %w", err)
-	}
-	if result.RoomID == "" {
-		return "", fmt.Errorf("createRoom response missing room_id")
+	if lastErr != nil {
+		return "", lastErr
 	}
 
-	return result.RoomID, nil
+	return "", fmt.Errorf("create room failed after retries")
 }
 
 // Sync performs a single sync request.
