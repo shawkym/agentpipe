@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-02-09
+
+### Added
+- Custom OpenAI-compatible API agent (`type: api`) with `api_endpoint`/`api_key`, streaming support, and a default `"auto"` model fallback.
+- Matrix auto-provisioning via Synapse admin API: create agent/listener users, optional room creation, admin join support, and cleanup/erase options.
+- Matrix API rate limiting with retry/backoff handling and new `rate_limit`/`rate_limit_burst` configuration.
+- New examples: `examples/custom-api-agent.yaml`, `examples/matrix-auto-provision.yaml`.
+
+### Changed
+- OpenRouter agent now supports per-agent `api_key`/`api_endpoint` overrides and validates models up front.
+- Matrix configuration and validation now support admin credentials via env vars; Matrix bridges close cleanly on shutdown.
+- CLI/TUI output includes Matrix bridge status, startup version banner, and rate-limit wait metadata in logs.
+- Config watcher debounces rapid reload events.
+- Bumped the Go requirement to 1.25 and refreshed module dependencies.
+- Updated Docker build images to Go 1.25.7.
+
+### Fixed
+- Matrix admin join path posts JSON payloads and honors `retry_after_ms` when rate limited.
+- Matrix login/join/send/sync now retry with backoff and pass `server_name` when joining by alias.
+
+### Documentation
+- Added Matrix auto-provisioning and custom API agent guidance to README, plus new troubleshooting notes for Matrix rate limits and admin join errors.
+- Updated OpenRouter docs and examples to reflect per-agent API keys.
+
+### Tests
+- Added Synapse admin client tests and expanded model validation coverage for API agents.
+
 ## [0.7.0] - 2025-01-27
 
 ### Added
@@ -1148,7 +1175,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Clean Message Display**: Smart consolidation of headers and proper paragraph formatting
 - **Cost Transparency**: See exactly how much each conversation costs
 
-[Unreleased]: https://github.com/shawkym/agentpipe/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/shawkym/agentpipe/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/shawkym/agentpipe/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/shawkym/agentpipe/compare/v0.6.0...v0.7.0
 [v0.2.1]: https://github.com/shawkym/agentpipe/compare/v0.2.0...v0.2.1
 [v0.2.0]: https://github.com/shawkym/agentpipe/compare/v0.1.5...v0.2.0

@@ -570,7 +570,7 @@ The doctor command performs a complete diagnostic check of your system and provi
 
 📋 SYSTEM ENVIRONMENT
 ------------------------------------------------------------
-✅ Go Runtime: go1.25.3 (darwin/arm64)
+✅ Go Runtime: go1.25.7 (darwin/arm64)
 ✅ PATH: 40 directories in PATH
 ✅ Home Directory: /Users/username
 ✅ Chat Logs Directory: /Users/username/.agentpipe/chats
@@ -615,7 +615,7 @@ The doctor command performs a complete diagnostic check of your system and provi
 
 📋 SYSTEM ENVIRONMENT
 ------------------------------------------------------------
-✅ Go Runtime: go1.25.3 (darwin/arm64)
+✅ Go Runtime: go1.25.7 (darwin/arm64)
 ✅ PATH: 40 directories in PATH
 ✅ Home Directory: /Users/username
 ✅ Chat Logs Directory: /Users/username/.agentpipe/chats
