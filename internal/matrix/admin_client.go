@@ -65,7 +65,7 @@ func (a *AdminClient) CreateOrUpdateUser(userID, password, displayName string, a
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		waitForLimiter(a.limiter)
+		waitForLimiter(a.limiter, "admin_create_user")
 		req, err := http.NewRequest("PUT", endpoint, bytes.NewReader(body))
 		if err != nil {
 			return fmt.Errorf("failed to create admin request: %w", err)
@@ -90,7 +90,7 @@ func (a *AdminClient) CreateOrUpdateUser(userID, password, displayName string, a
 			if resp.StatusCode == http.StatusTooManyRequests {
 				retryAfter := capRetryAfter(parseRetryAfter(bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
-					time.Sleep(retryAfter)
+					sleepWithLog("admin_create_user", "retry_after", retryAfter)
 					continue
 				}
 			}
@@ -100,7 +100,7 @@ func (a *AdminClient) CreateOrUpdateUser(userID, password, displayName string, a
 
 		if attempt < maxRetries {
 			backoff := time.Duration(1<<attempt) * time.Second
-			time.Sleep(backoff)
+			sleepWithLog("admin_create_user", "backoff", backoff)
 			continue
 		}
 	}
@@ -132,7 +132,7 @@ func (a *AdminClient) DeactivateUser(userID string, erase bool) error {
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		waitForLimiter(a.limiter)
+		waitForLimiter(a.limiter, "admin_deactivate_user")
 		req, err := http.NewRequest("POST", endpoint, bytes.NewReader(body))
 		if err != nil {
 			return fmt.Errorf("failed to create deactivate request: %w", err)
@@ -157,7 +157,7 @@ func (a *AdminClient) DeactivateUser(userID string, erase bool) error {
 			if resp.StatusCode == http.StatusTooManyRequests {
 				retryAfter := capRetryAfter(parseRetryAfter(bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
-					time.Sleep(retryAfter)
+					sleepWithLog("admin_deactivate_user", "retry_after", retryAfter)
 					continue
 				}
 			}
@@ -167,7 +167,7 @@ func (a *AdminClient) DeactivateUser(userID string, erase bool) error {
 
 		if attempt < maxRetries {
 			backoff := time.Duration(1<<attempt) * time.Second
-			time.Sleep(backoff)
+			sleepWithLog("admin_deactivate_user", "backoff", backoff)
 			continue
 		}
 	}
@@ -197,7 +197,7 @@ func (a *AdminClient) JoinRoomForUser(roomIDOrAlias, userID string) (string, err
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		waitForLimiter(a.limiter)
+		waitForLimiter(a.limiter, "admin_join")
 		req, err := http.NewRequest("POST", endpoint, nil)
 		if err != nil {
 			return "", fmt.Errorf("failed to create admin join request: %w", err)
@@ -227,7 +227,7 @@ func (a *AdminClient) JoinRoomForUser(roomIDOrAlias, userID string) (string, err
 			if resp.StatusCode == http.StatusTooManyRequests {
 				retryAfter := capRetryAfter(parseRetryAfter(bodyBytes))
 				if retryAfter > 0 && attempt < maxRetries {
-					time.Sleep(retryAfter)
+					sleepWithLog("admin_join", "retry_after", retryAfter)
 					continue
 				}
 			}
@@ -237,7 +237,7 @@ func (a *AdminClient) JoinRoomForUser(roomIDOrAlias, userID string) (string, err
 
 		if attempt < maxRetries {
 			backoff := time.Duration(1<<attempt) * time.Second
-			time.Sleep(backoff)
+			sleepWithLog("admin_join", "backoff", backoff)
 			continue
 		}
 	}

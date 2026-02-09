@@ -3,6 +3,8 @@ package matrix
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/shawkym/agentpipe/pkg/log"
 )
 
 const (
@@ -34,4 +36,16 @@ func capRetryAfter(d time.Duration) time.Duration {
 		return maxRetryAfter
 	}
 	return d
+}
+
+func sleepWithLog(call, reason string, d time.Duration) {
+	if d <= 0 {
+		return
+	}
+	log.WithFields(map[string]interface{}{
+		"call":    call,
+		"reason":  reason,
+		"wait_ms": d.Milliseconds(),
+	}).Info("matrix api wait")
+	time.Sleep(d)
 }
