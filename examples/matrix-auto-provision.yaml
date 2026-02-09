@@ -11,6 +11,9 @@ matrix:
   room: ""
   # Required for auto-provisioning
   admin_access_token: "YOUR_SYNAPSE_ADMIN_TOKEN"
+  # Optional cleanup controls
+  cleanup: true
+  erase_on_cleanup: false
 
 orchestrator:
   mode: "round-robin"

@@ -142,7 +142,7 @@ func NewDefaultConfig() *Config {
 			SyncTimeoutMs:  30000,
 			UserPrefix:     "agentpipe",
 			Cleanup:        boolPtr(true),
-			EraseOnCleanup: boolPtr(true),
+			EraseOnCleanup: boolPtr(false),
 		},
 	}
 }
@@ -230,24 +230,29 @@ func (c *Config) Validate() error {
 	}
 
 	if c.Matrix.Enabled {
-		if c.Matrix.AutoProvision {
-			if c.Matrix.AdminAccessToken == "" && os.Getenv("MATRIX_ADMIN_TOKEN") == "" {
+		adminToken := c.Matrix.AdminAccessToken
+		if adminToken == "" {
+			adminToken = os.Getenv("MATRIX_ADMIN_TOKEN")
+		}
+
+		if c.Matrix.AutoProvision || adminToken != "" {
+			if adminToken == "" {
 				return fmt.Errorf("matrix.admin_access_token or MATRIX_ADMIN_TOKEN is required when matrix auto_provision is enabled")
 			}
 		} else {
 			if c.Matrix.Homeserver == "" {
-				return fmt.Errorf("matrix.homeserver is required when matrix is enabled")
+				return fmt.Errorf("matrix.homeserver is required when matrix is enabled (or enable matrix.auto_provision)")
 			}
 			if c.Matrix.Room == "" {
-				return fmt.Errorf("matrix.room is required when matrix is enabled")
+				return fmt.Errorf("matrix.room is required when matrix is enabled (or enable matrix.auto_provision)")
 			}
 
 			for _, agentCfg := range c.Agents {
 				if agentCfg.Matrix.UserID == "" {
-					return fmt.Errorf("matrix user_id is required for agent %s when matrix is enabled", agentCfg.ID)
+					return fmt.Errorf("matrix user_id is required for agent %s when matrix is enabled (or enable matrix.auto_provision)", agentCfg.ID)
 				}
 				if agentCfg.Matrix.AccessToken == "" && agentCfg.Matrix.Password == "" {
-					return fmt.Errorf("matrix access_token or password is required for agent %s when matrix is enabled", agentCfg.ID)
+					return fmt.Errorf("matrix access_token or password is required for agent %s when matrix is enabled (or enable matrix.auto_provision)", agentCfg.ID)
 				}
 			}
 		}
@@ -322,7 +327,7 @@ func (c *Config) applyDefaults() {
 		c.Matrix.Cleanup = boolPtr(true)
 	}
 	if c.Matrix.EraseOnCleanup == nil {
-		c.Matrix.EraseOnCleanup = boolPtr(true)
+		c.Matrix.EraseOnCleanup = boolPtr(false)
 	}
 
 	for i := range c.Agents {

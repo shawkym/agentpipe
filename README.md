@@ -153,12 +153,14 @@ You can also provide these via environment variables:
 - `MATRIX_ROOM`
 - `MATRIX_ADMIN_TOKEN`
 
+If `MATRIX_ADMIN_TOKEN` is set, AgentPipe will auto-provision even if `auto_provision` is not specified.
+
 Example:
 - `examples/matrix-auto-provision.yaml` - Auto-provisioned Matrix users
 
 Cleanup:
 - `cleanup: false` keeps auto-provisioned users after shutdown
-- `erase_on_cleanup: false` deactivates without GDPR erase
+- `erase_on_cleanup: true` enables GDPR erase (default is `false`)
 
 ## What's New
 

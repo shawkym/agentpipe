@@ -48,7 +48,7 @@ func NewBridge(cfg config.MatrixConfig, agents []agent.AgentConfig) (*Bridge, er
 		sendQueue:    make(chan agent.Message, sendQueueSize),
 	}
 
-	if cfg.AutoProvision {
+	if cfg.AutoProvision || resolveAdminToken(cfg) != "" {
 		if err := bridge.autoProvision(agents); err != nil {
 			return nil, err
 		}

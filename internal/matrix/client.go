@@ -104,6 +104,11 @@ func (c *Client) JoinRoom(room string) (string, error) {
 	}
 
 	endpoint := fmt.Sprintf("%s/_matrix/client/v3/join/%s", c.baseURL, url.PathEscape(room))
+	if domain := extractRoomDomain(room); domain != "" {
+		query := url.Values{}
+		query.Add("server_name", domain)
+		endpoint = endpoint + "?" + query.Encode()
+	}
 	req, err := http.NewRequest("POST", endpoint, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create join request: %w", err)
@@ -132,6 +137,13 @@ func (c *Client) JoinRoom(room string) (string, error) {
 	}
 
 	return result.RoomID, nil
+}
+
+func extractRoomDomain(room string) string {
+	if idx := strings.Index(room, ":"); idx != -1 && idx+1 < len(room) {
+		return room[idx+1:]
+	}
+	return ""
 }
 
 // SendMessage sends a text message to the given room.
