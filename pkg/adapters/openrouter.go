@@ -37,6 +37,15 @@ func (o *OpenRouterAgent) Initialize(config agent.AgentConfig) error {
 		return err
 	}
 
+	// Validate model is configured
+	if o.Config.Model == "" {
+		log.WithFields(map[string]interface{}{
+			"agent_id":   o.ID,
+			"agent_name": o.Name,
+		}).Error("model not specified in configuration")
+		return fmt.Errorf("model must be specified for OpenRouter agent")
+	}
+
 	// Get API key from config or environment
 	apiKey := config.APIKey
 	if apiKey == "" {
@@ -50,15 +59,6 @@ func (o *OpenRouterAgent) Initialize(config agent.AgentConfig) error {
 		return fmt.Errorf("openrouter api key is required (set api_key or OPENROUTER_API_KEY)")
 	}
 	o.apiKey = apiKey
-
-	// Validate model is configured
-	if o.Config.Model == "" {
-		log.WithFields(map[string]interface{}{
-			"agent_id":   o.ID,
-			"agent_name": o.Name,
-		}).Error("model not specified in configuration")
-		return fmt.Errorf("model must be specified for OpenRouter agent")
-	}
 
 	// Verify model exists in provider registry
 	registry := providers.GetRegistry()

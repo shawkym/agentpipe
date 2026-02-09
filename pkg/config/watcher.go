@@ -4,6 +4,7 @@ package config
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
@@ -24,6 +25,7 @@ type ConfigWatcher struct {
 	callbacks       []ConfigChangeCallback
 	stopChan        chan struct{}
 	reloadInProcess bool
+	lastReload      time.Time
 }
 
 // NewConfigWatcher creates a new configuration watcher.
@@ -100,7 +102,12 @@ func (cw *ConfigWatcher) handleConfigChange(e fsnotify.Event) {
 		cw.mu.Unlock()
 		return
 	}
+	if !cw.lastReload.IsZero() && time.Since(cw.lastReload) < 200*time.Millisecond {
+		cw.mu.Unlock()
+		return
+	}
 	cw.reloadInProcess = true
+	cw.lastReload = time.Now()
 	cw.mu.Unlock()
 
 	defer func() {
