@@ -56,6 +56,7 @@ func Execute() {
 
 	if !shouldSkipLogo {
 		PrintLogo()
+		fmt.Printf("AgentPipe %s\n\n", version.GetShortVersion())
 	}
 
 	if err := rootCmd.Execute(); err != nil {

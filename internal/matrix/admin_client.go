@@ -282,14 +282,12 @@ func isLocalUserOnly(body []byte) bool {
 		ErrCode string `json:"errcode"`
 		Error   string `json:"error"`
 	}
-	if err := json.Unmarshal(body, &payload); err != nil {
-		return false
+	if err := json.Unmarshal(body, &payload); err == nil {
+		if strings.Contains(strings.ToLower(payload.Error), "local user") {
+			return true
+		}
 	}
-	if payload.Error == "" {
-		return false
-	}
-	if payload.ErrCode != "" && payload.ErrCode != "M_UNKNOWN" {
-		return false
-	}
-	return strings.Contains(strings.ToLower(payload.Error), "local users")
+
+	// Fallback for non-JSON responses or unexpected error payloads.
+	return strings.Contains(strings.ToLower(string(body)), "local user")
 }

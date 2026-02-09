@@ -204,13 +204,15 @@ func (b *Bridge) autoProvision(agents []agent.AgentConfig) error {
 	homeserver := resolveHomeserver(b.cfg)
 	adminToken := resolveAdminToken(b.cfg)
 	adminUser, adminPassword := resolveAdminCredentials(b.cfg)
+	loginUserID := ""
 	if adminToken == "" {
 		if adminUser != "" && adminPassword != "" {
-			token, _, err := LoginWithPassword(homeserver, adminUser, adminPassword, 15*time.Second, b.limiter)
+			token, userID, err := LoginWithPassword(homeserver, adminUser, adminPassword, 15*time.Second, b.limiter)
 			if err != nil {
 				return fmt.Errorf("matrix admin login failed: %w", err)
 			}
 			adminToken = token
+			loginUserID = userID
 		}
 	}
 	if adminToken == "" {
@@ -220,7 +222,7 @@ func (b *Bridge) autoProvision(agents []agent.AgentConfig) error {
 	adminClient := NewAdminClient(homeserver, adminToken, 15*time.Second, b.limiter)
 	b.adminClient = adminClient
 
-	whoamiUserID := ""
+	whoamiUserID := loginUserID
 	lookup := NewClient(homeserver, adminToken, "", 15*time.Second, b.limiter)
 	if who, err := lookup.WhoAmI(); err == nil {
 		whoamiUserID = who
