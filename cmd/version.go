@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kevinelliott/agentpipe/internal/version"
+	"github.com/shawkym/agentpipe/internal/version"
 )
 
 var (
@@ -44,7 +44,7 @@ func runVersion(cmd *cobra.Command, args []string) {
 			fmt.Printf("   Current version: %s (out of date)\n", version.GetShortVersion())
 			fmt.Printf("   Latest version:  %s\n", latestVersion)
 			fmt.Printf("\n   Update with: brew upgrade agentpipe\n")
-			fmt.Printf("   Or download from: https://github.com/kevinelliott/agentpipe/releases/latest\n")
+			fmt.Printf("   Or download from: https://github.com/shawkym/agentpipe/releases/latest\n")
 		} else if latestVersion != "" {
 			fmt.Printf("   ✅ You're running the latest version! (%s)\n", latestVersion)
 		} else {

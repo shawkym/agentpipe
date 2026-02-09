@@ -15,16 +15,17 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/kevinelliott/agentpipe/internal/bridge"
-	"github.com/kevinelliott/agentpipe/internal/version"
-	_ "github.com/kevinelliott/agentpipe/pkg/adapters"
-	"github.com/kevinelliott/agentpipe/pkg/agent"
-	"github.com/kevinelliott/agentpipe/pkg/config"
-	"github.com/kevinelliott/agentpipe/pkg/conversation"
-	"github.com/kevinelliott/agentpipe/pkg/log"
-	"github.com/kevinelliott/agentpipe/pkg/logger"
-	"github.com/kevinelliott/agentpipe/pkg/orchestrator"
-	"github.com/kevinelliott/agentpipe/pkg/tui"
+	"github.com/shawkym/agentpipe/internal/bridge"
+	"github.com/shawkym/agentpipe/internal/matrix"
+	"github.com/shawkym/agentpipe/internal/version"
+	_ "github.com/shawkym/agentpipe/pkg/adapters"
+	"github.com/shawkym/agentpipe/pkg/agent"
+	"github.com/shawkym/agentpipe/pkg/config"
+	"github.com/shawkym/agentpipe/pkg/conversation"
+	"github.com/shawkym/agentpipe/pkg/log"
+	"github.com/shawkym/agentpipe/pkg/logger"
+	"github.com/shawkym/agentpipe/pkg/orchestrator"
+	"github.com/shawkym/agentpipe/pkg/tui"
 )
 
 var (
@@ -403,6 +404,21 @@ func startConversation(cmd *cobra.Command, cfg *config.Config, stdoutEmitter *br
 					fmt.Printf("🌐 Streaming enabled (conversation ID: %s)\n", emitter.GetConversationID())
 				}
 			}
+		}
+	}
+
+	// Set up Matrix (Synapse) integration if enabled
+	if cfg.Matrix.Enabled {
+		matrixBridge, err := matrix.NewBridge(cfg.Matrix, cfg.Agents)
+		if err != nil {
+			return fmt.Errorf("matrix setup failed: %w", err)
+		}
+		orch.AddMessageHook(matrixBridge.Send)
+		matrixBridge.Start(ctx, func(msg agent.Message) {
+			orch.InjectMessage(msg)
+		})
+		if !jsonOutput {
+			fmt.Printf("🟩 Matrix bridge enabled (room: %s)\n", cfg.Matrix.Room)
 		}
 	}
 

@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kevinelliott/agentpipe/pkg/conversation"
-	"github.com/kevinelliott/agentpipe/pkg/log"
+	"github.com/shawkym/agentpipe/pkg/conversation"
+	"github.com/shawkym/agentpipe/pkg/log"
 )
 
 var resumeCmd = &cobra.Command{

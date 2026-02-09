@@ -11,7 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/kevinelliott/agentpipe/internal/providers"
+	"github.com/shawkym/agentpipe/internal/providers"
 )
 
 func main() {

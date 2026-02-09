@@ -5,7 +5,7 @@
 
 set -e
 
-REPO="kevinelliott/agentpipe"
+REPO="shawkym/agentpipe"
 INSTALL_DIR="/usr/local/bin"
 BINARY_NAME="agentpipe"
 

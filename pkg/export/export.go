@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/agent"
+	"github.com/shawkym/agentpipe/pkg/agent"
 )
 
 // Format represents the export format type.

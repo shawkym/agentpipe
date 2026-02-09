@@ -7,7 +7,7 @@ COMMIT?=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 DATE?=$(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 DOCKER_IMAGE=agentpipe
 DOCKER_TAG?=latest
-DOCKER_REGISTRY?=docker.io/kevinelliott
+DOCKER_REGISTRY?=docker.io/shawkym
 
 # Installation paths
 PREFIX?=/usr/local
@@ -16,9 +16,9 @@ INSTALL?=install
 
 # Go build flags
 LDFLAGS=-ldflags "-w -s \
-	-X github.com/kevinelliott/agentpipe/internal/version.Version=$(VERSION) \
-	-X github.com/kevinelliott/agentpipe/internal/version.CommitHash=$(COMMIT) \
-	-X github.com/kevinelliott/agentpipe/internal/version.BuildDate=$(DATE)"
+	-X github.com/shawkym/agentpipe/internal/version.Version=$(VERSION) \
+	-X github.com/shawkym/agentpipe/internal/version.CommitHash=$(COMMIT) \
+	-X github.com/shawkym/agentpipe/internal/version.BuildDate=$(DATE)"
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'

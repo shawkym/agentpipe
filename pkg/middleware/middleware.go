@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kevinelliott/agentpipe/pkg/agent"
-	"github.com/kevinelliott/agentpipe/pkg/log"
+	"github.com/shawkym/agentpipe/pkg/agent"
+	"github.com/shawkym/agentpipe/pkg/log"
 )
 
 // MessageContext contains contextual information for middleware processing.

@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/kevinelliott/agentpipe/internal/branding"
+	"github.com/shawkym/agentpipe/internal/branding"
 )
 
 // PrintLogo prints the AgentPipe ASCII art logo with sunset gradient

@@ -11,8 +11,8 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/kevinelliott/agentpipe/internal/bridge"
-	"github.com/kevinelliott/agentpipe/pkg/agent"
+	"github.com/shawkym/agentpipe/internal/bridge"
+	"github.com/shawkym/agentpipe/pkg/agent"
 )
 
 type ChatLogger struct {

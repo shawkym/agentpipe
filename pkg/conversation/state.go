@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/agent"
-	"github.com/kevinelliott/agentpipe/pkg/config"
-	"github.com/kevinelliott/agentpipe/pkg/log"
+	"github.com/shawkym/agentpipe/pkg/agent"
+	"github.com/shawkym/agentpipe/pkg/config"
+	"github.com/shawkym/agentpipe/pkg/log"
 )
 
 // State represents a saved conversation state.

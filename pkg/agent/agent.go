@@ -71,6 +71,19 @@ type AgentConfig struct {
 	RateLimitBurst int `yaml:"rate_limit_burst"`
 	// CustomSettings allows agent-specific configuration options
 	CustomSettings map[string]interface{} `yaml:"custom_settings"`
+	// Matrix defines optional Matrix (Synapse) user mapping for this agent
+	Matrix MatrixUserConfig `yaml:"matrix"`
+}
+
+// MatrixUserConfig defines credentials for a Matrix user account.
+// AccessToken is preferred; Password is used to login and fetch a token.
+type MatrixUserConfig struct {
+	// UserID is the full Matrix user ID (e.g., @agent1:example.com)
+	UserID string `yaml:"user_id"`
+	// AccessToken is the Matrix access token for this user (preferred)
+	AccessToken string `yaml:"access_token"`
+	// Password is an optional password for login when access token is not provided
+	Password string `yaml:"password"`
 }
 
 // Agent is the core interface that all agent implementations must satisfy.

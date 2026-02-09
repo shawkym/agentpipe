@@ -10,7 +10,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/kevinelliott/agentpipe/pkg/agent"
+	"github.com/shawkym/agentpipe/pkg/agent"
 )
 
 // Config is the top-level configuration structure for AgentPipe.
@@ -26,6 +26,8 @@ type Config struct {
 	Logging LoggingConfig `yaml:"logging"`
 	// Bridge defines streaming bridge settings
 	Bridge BridgeConfig `yaml:"bridge"`
+	// Matrix defines Matrix (Synapse) room integration settings
+	Matrix MatrixConfig `yaml:"matrix"`
 }
 
 // OrchestratorConfig defines how the orchestrator manages conversations.
@@ -80,6 +82,21 @@ type BridgeConfig struct {
 	LogLevel string `yaml:"log_level"`
 }
 
+// MatrixConfig defines Matrix (Synapse) integration settings.
+// When enabled, agents map to Matrix users and conversations are mirrored to a room.
+type MatrixConfig struct {
+	// Enabled determines if Matrix integration is active (disabled by default)
+	Enabled bool `yaml:"enabled"`
+	// Homeserver is the base URL for the Matrix homeserver (e.g., https://matrix.example.com)
+	Homeserver string `yaml:"homeserver"`
+	// Room is the room ID or alias to join (e.g., !roomid:example.com or #alias:example.com)
+	Room string `yaml:"room"`
+	// SyncTimeoutMs is the long-poll timeout for sync in milliseconds (default: 30000)
+	SyncTimeoutMs int `yaml:"sync_timeout_ms"`
+	// Listener defines the Matrix user used to listen for inbound messages
+	Listener agent.MatrixUserConfig `yaml:"listener"`
+}
+
 // NewDefaultConfig creates a configuration with sensible defaults.
 // The default log directory is ~/.agentpipe/chats.
 func NewDefaultConfig() *Config {
@@ -107,6 +124,10 @@ func NewDefaultConfig() *Config {
 			ChatLogDir:  defaultLogDir,
 			LogFormat:   "text",
 			ShowMetrics: false,
+		},
+		Matrix: MatrixConfig{
+			Enabled:       false,
+			SyncTimeoutMs: 30000,
 		},
 	}
 }
@@ -184,6 +205,24 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid orchestrator mode: %s", c.Orchestrator.Mode)
 	}
 
+	if c.Matrix.Enabled {
+		if c.Matrix.Homeserver == "" {
+			return fmt.Errorf("matrix.homeserver is required when matrix is enabled")
+		}
+		if c.Matrix.Room == "" {
+			return fmt.Errorf("matrix.room is required when matrix is enabled")
+		}
+
+		for _, agentCfg := range c.Agents {
+			if agentCfg.Matrix.UserID == "" {
+				return fmt.Errorf("matrix user_id is required for agent %s when matrix is enabled", agentCfg.ID)
+			}
+			if agentCfg.Matrix.AccessToken == "" && agentCfg.Matrix.Password == "" {
+				return fmt.Errorf("matrix access_token or password is required for agent %s when matrix is enabled", agentCfg.ID)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -240,6 +279,11 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Bridge.LogLevel == "" {
 		c.Bridge.LogLevel = "info"
+	}
+
+	// Matrix defaults
+	if c.Matrix.SyncTimeoutMs == 0 {
+		c.Matrix.SyncTimeoutMs = 30000
 	}
 
 	for i := range c.Agents {

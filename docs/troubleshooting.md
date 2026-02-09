@@ -52,7 +52,7 @@ bash: agentpipe: command not found
 brew list agentpipe
 
 # If not installed
-brew install kevinelliott/tap/agentpipe
+brew install shawkym/tap/agentpipe
 
 # Check PATH
 echo $PATH | grep -o '/usr/local/bin'
@@ -61,7 +61,7 @@ echo $PATH | grep -o '/usr/local/bin'
 2. **If built from source:**
 ```bash
 # Build and install
-go install github.com/kevinelliott/agentpipe@latest
+go install github.com/shawkym/agentpipe@latest
 
 # Ensure GOPATH/bin is in PATH
 export PATH=$PATH:$(go env GOPATH)/bin
@@ -564,7 +564,7 @@ golangci-lint run --fix
 3. **Format code:**
 ```bash
 gofmt -w .
-goimports -local github.com/kevinelliott/agentpipe -w .
+goimports -local github.com/shawkym/agentpipe -w .
 ```
 
 ### Issue: Module issues
@@ -635,7 +635,7 @@ agentpipe run -c config.yaml 2>&1 | tee diagnostics.log
 
 ### Before Asking for Help
 
-1. Search [existing issues](https://github.com/kevinelliott/agentpipe/issues)
+1. Search [existing issues](https://github.com/shawkym/agentpipe/issues)
 2. Check this troubleshooting guide
 3. Run `agentpipe doctor`
 4. Try minimal configuration

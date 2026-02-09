@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/internal/registry"
-	"github.com/kevinelliott/agentpipe/pkg/agent"
-	"github.com/kevinelliott/agentpipe/pkg/log"
+	"github.com/shawkym/agentpipe/internal/registry"
+	"github.com/shawkym/agentpipe/pkg/agent"
+	"github.com/shawkym/agentpipe/pkg/log"
 )
 
 type QoderAgent struct {

@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/agent"
-	"github.com/kevinelliott/agentpipe/pkg/config"
-	"github.com/kevinelliott/agentpipe/pkg/logger"
-	"github.com/kevinelliott/agentpipe/pkg/orchestrator"
+	"github.com/shawkym/agentpipe/pkg/agent"
+	"github.com/shawkym/agentpipe/pkg/config"
+	"github.com/shawkym/agentpipe/pkg/logger"
+	"github.com/shawkym/agentpipe/pkg/orchestrator"
 )
 
 // MockIntegrationAgent is a realistic mock agent for integration testing

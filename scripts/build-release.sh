@@ -117,7 +117,7 @@ cat > RELEASE_NOTES.md << EOF
 
 ### Homebrew
 \`\`\`bash
-brew tap kevinelliott/tap
+brew tap shawkym/tap
 brew install agentpipe
 \`\`\`
 
@@ -139,7 +139,7 @@ agentpipe run -a claude:Alice -a gemini:Bob -p "Hello!"
 \`\`\`
 
 ## Full Documentation
-See the [README](https://github.com/kevinelliott/agentpipe#readme) for complete documentation.
+See the [README](https://github.com/shawkym/agentpipe#readme) for complete documentation.
 EOF
 
 cd ..

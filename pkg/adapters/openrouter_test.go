@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kevinelliott/agentpipe/pkg/agent"
+	"github.com/shawkym/agentpipe/pkg/agent"
 )
 
 func TestNewOpenRouterAgent(t *testing.T) {

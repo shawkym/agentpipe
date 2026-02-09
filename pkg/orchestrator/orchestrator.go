@@ -13,15 +13,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/internal/bridge"
-	"github.com/kevinelliott/agentpipe/pkg/agent"
-	"github.com/kevinelliott/agentpipe/pkg/config"
-	"github.com/kevinelliott/agentpipe/pkg/log"
-	"github.com/kevinelliott/agentpipe/pkg/logger"
-	"github.com/kevinelliott/agentpipe/pkg/metrics"
-	"github.com/kevinelliott/agentpipe/pkg/middleware"
-	"github.com/kevinelliott/agentpipe/pkg/ratelimit"
-	"github.com/kevinelliott/agentpipe/pkg/utils"
+	"github.com/shawkym/agentpipe/internal/bridge"
+	"github.com/shawkym/agentpipe/pkg/agent"
+	"github.com/shawkym/agentpipe/pkg/config"
+	"github.com/shawkym/agentpipe/pkg/log"
+	"github.com/shawkym/agentpipe/pkg/logger"
+	"github.com/shawkym/agentpipe/pkg/metrics"
+	"github.com/shawkym/agentpipe/pkg/middleware"
+	"github.com/shawkym/agentpipe/pkg/ratelimit"
+	"github.com/shawkym/agentpipe/pkg/utils"
 )
 
 // ConversationMode defines how agents take turns in a conversation.
@@ -78,7 +78,11 @@ type Orchestrator struct {
 	conversationStart time.Time               // conversation start time for duration tracking
 	commandInfo       *bridge.CommandInfo     // information about the command that started this conversation
 	summary           *bridge.SummaryMetadata // conversation summary (populated after completion if enabled)
+	messageHooks      []MessageHook           // optional hooks for message events
 }
+
+// MessageHook is invoked whenever a message is appended to the conversation history.
+type MessageHook func(msg agent.Message)
 
 // NewOrchestrator creates a new Orchestrator with the given configuration.
 // Default values are applied if TurnTimeout (30s) or ResponseDelay (1s) are zero.
@@ -166,6 +170,44 @@ func (o *Orchestrator) SetCommandInfo(info *bridge.CommandInfo) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.commandInfo = info
+}
+
+// AddMessageHook registers a hook to receive message events.
+// Hooks are invoked synchronously; keep them lightweight.
+func (o *Orchestrator) AddMessageHook(hook MessageHook) {
+	if hook == nil {
+		return
+	}
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.messageHooks = append(o.messageHooks, hook)
+}
+
+// InjectMessage appends an external message (e.g., user input) into the conversation.
+// This is safe to call concurrently while the orchestrator is running.
+func (o *Orchestrator) InjectMessage(msg agent.Message) {
+	if msg.Timestamp == 0 {
+		msg.Timestamp = time.Now().Unix()
+	}
+	if msg.Role == "" {
+		msg.Role = "user"
+	}
+
+	o.mu.Lock()
+	o.messages = append(o.messages, msg)
+	hooks := append([]MessageHook(nil), o.messageHooks...)
+	o.mu.Unlock()
+
+	if o.logger != nil {
+		o.logger.LogMessage(msg)
+	}
+	if o.writer != nil {
+		fmt.Fprintf(o.writer, "\n[%s] %s\n", msg.AgentName, msg.Content)
+	}
+
+	for _, hook := range hooks {
+		hook(msg)
+	}
 }
 
 // emitConversationCompleted emits the conversation.completed event if bridge is enabled.
@@ -585,6 +627,7 @@ func (o *Orchestrator) Start(ctx context.Context) error {
 		}
 		o.mu.Lock()
 		o.messages = append(o.messages, initialMsg)
+		hooks := append([]MessageHook(nil), o.messageHooks...)
 		o.mu.Unlock()
 
 		// Log using the logger if available
@@ -594,6 +637,10 @@ func (o *Orchestrator) Start(ctx context.Context) error {
 		// Always write to writer if available (for TUI)
 		if o.writer != nil {
 			fmt.Fprintf(o.writer, "\n[HOST] %s\n", initialMsg.Content)
+		}
+
+		for _, hook := range hooks {
+			hook(initialMsg)
 		}
 	}
 
@@ -958,6 +1005,7 @@ func (o *Orchestrator) getAgentResponse(ctx context.Context, a agent.Agent) erro
 	currentTurn := o.currentTurnNumber
 	o.currentTurnNumber++
 	bridgeEmitter := o.bridgeEmitter
+	hooks := append([]MessageHook(nil), o.messageHooks...)
 	o.mu.Unlock()
 
 	// Emit message.created event if bridge is enabled
@@ -994,6 +1042,10 @@ func (o *Orchestrator) getAgentResponse(ctx context.Context, a agent.Agent) erro
 		} else {
 			fmt.Fprintf(o.writer, "\n[%s] %s\n", a.GetName(), response)
 		}
+	}
+
+	for _, hook := range hooks {
+		hook(msg)
 	}
 
 	return nil

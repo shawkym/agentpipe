@@ -51,7 +51,7 @@ Thank you for your interest in contributing to AgentPipe! This document provides
 
 2. **Add upstream remote**
    ```bash
-   git remote add upstream https://github.com/kevinelliott/agentpipe.git
+   git remote add upstream https://github.com/shawkym/agentpipe.git
    ```
 
 3. **Install dependencies**
@@ -124,7 +124,7 @@ golangci-lint run
 
 # Format code
 gofmt -w .
-goimports -local github.com/kevinelliott/agentpipe -w .
+goimports -local github.com/shawkym/agentpipe -w .
 ```
 
 ### 4. Commit Your Changes

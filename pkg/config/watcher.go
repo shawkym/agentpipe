@@ -8,7 +8,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
 
-	"github.com/kevinelliott/agentpipe/pkg/log"
+	"github.com/shawkym/agentpipe/pkg/log"
 )
 
 // ConfigChangeCallback is called when the configuration file changes.

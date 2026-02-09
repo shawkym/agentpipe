@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kevinelliott/agentpipe/internal/providers"
-	"github.com/kevinelliott/agentpipe/pkg/log"
+	"github.com/shawkym/agentpipe/internal/providers"
+	"github.com/shawkym/agentpipe/pkg/log"
 )
 
 // ModelSupport defines whether an agent type supports and/or requires model specification.

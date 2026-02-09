@@ -43,7 +43,7 @@ linters-settings:
   gofmt:
     simplify: true
   goimports:
-    local-prefixes: github.com/kevinelliott/agentpipe
+    local-prefixes: github.com/shawkym/agentpipe
 
 issues:
   exclude-rules:

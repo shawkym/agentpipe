@@ -3,7 +3,7 @@ package benchmark
 import (
 	"testing"
 
-	"github.com/kevinelliott/agentpipe/pkg/utils"
+	"github.com/shawkym/agentpipe/pkg/utils"
 )
 
 // BenchmarkEstimateTokens benchmarks token estimation for various text lengths

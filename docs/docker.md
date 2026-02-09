@@ -19,19 +19,19 @@ This guide covers using AgentPipe with Docker for containerized deployments.
 
 ```bash
 # Pull the latest image
-docker pull kevinelliott/agentpipe:latest
+docker pull shawkym/agentpipe:latest
 
 # Run with example configuration
 docker run --rm -it \
   -v $(pwd)/config.yaml:/home/agentpipe/config.yaml:ro \
-  kevinelliott/agentpipe:latest run -c /home/agentpipe/config.yaml
+  shawkym/agentpipe:latest run -c /home/agentpipe/config.yaml
 ```
 
 ### Using Docker Compose
 
 ```bash
 # Clone repository
-git clone https://github.com/kevinelliott/agentpipe.git
+git clone https://github.com/shawkym/agentpipe.git
 cd agentpipe
 
 # Create configuration
@@ -418,12 +418,12 @@ docker run --network host agentpipe:latest
 docker login
 
 # Tag image
-docker tag agentpipe:latest kevinelliott/agentpipe:latest
-docker tag agentpipe:latest kevinelliott/agentpipe:v1.0.0
+docker tag agentpipe:latest shawkym/agentpipe:latest
+docker tag agentpipe:latest shawkym/agentpipe:v1.0.0
 
 # Push image
-docker push kevinelliott/agentpipe:latest
-docker push kevinelliott/agentpipe:v1.0.0
+docker push shawkym/agentpipe:latest
+docker push shawkym/agentpipe:v1.0.0
 
 # Or use Makefile
 make docker-push
@@ -436,10 +436,10 @@ make docker-push
 echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
 
 # Tag image
-docker tag agentpipe:latest ghcr.io/kevinelliott/agentpipe:latest
+docker tag agentpipe:latest ghcr.io/shawkym/agentpipe:latest
 
 # Push image
-docker push ghcr.io/kevinelliott/agentpipe:latest
+docker push ghcr.io/shawkym/agentpipe:latest
 ```
 
 ## Examples

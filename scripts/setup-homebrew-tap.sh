@@ -5,7 +5,7 @@
 
 set -e
 
-echo "🍺 Setting up Homebrew tap for kevinelliott/agentpipe"
+echo "🍺 Setting up Homebrew tap for shawkym/agentpipe"
 echo ""
 
 # Check if gh CLI is installed
@@ -18,7 +18,7 @@ fi
 
 # Create the tap repository on GitHub
 echo "📦 Creating homebrew-tap repository on GitHub..."
-gh repo create kevinelliott/homebrew-tap --public --description "Homebrew formulae for kevinelliott's projects" --clone || {
+gh repo create shawkym/homebrew-tap --public --description "Homebrew formulae for shawkym's projects" --clone || {
     echo "   Repository may already exist, continuing..."
 }
 
@@ -26,7 +26,7 @@ gh repo create kevinelliott/homebrew-tap --public --description "Homebrew formul
 TAP_DIR="$HOME/homebrew-tap"
 if [ ! -d "$TAP_DIR" ]; then
     echo "📂 Cloning tap repository..."
-    gh repo clone kevinelliott/homebrew-tap "$TAP_DIR"
+    gh repo clone shawkym/homebrew-tap "$TAP_DIR"
 fi
 
 cd "$TAP_DIR"
@@ -52,14 +52,14 @@ fi
 # Create README
 echo "📄 Creating README..."
 cat > README.md << 'EOF'
-# kevinelliott Homebrew Tap
+# shawkym Homebrew Tap
 
-This tap contains formulae for kevinelliott's projects.
+This tap contains formulae for shawkym's projects.
 
 ## Installation
 
 ```bash
-brew tap kevinelliott/tap
+brew tap shawkym/tap
 ```
 
 ## Available Formulae
@@ -70,10 +70,10 @@ AgentPipe orchestrates conversations between multiple AI CLI agents (Claude, Gem
 
 ```bash
 # Install from tap
-brew install kevinelliott/tap/agentpipe
+brew install shawkym/tap/agentpipe
 
 # Or tap first, then install
-brew tap kevinelliott/tap
+brew tap shawkym/tap
 brew install agentpipe
 ```
 
@@ -102,16 +102,16 @@ agentpipe run -c examples/brainstorm.yaml --enhanced-tui
 To install the latest development version:
 
 ```bash
-brew install --HEAD kevinelliott/tap/agentpipe
+brew install --HEAD shawkym/tap/agentpipe
 ```
 
 ## Issues
 
 For issues with formulae, please file them at the respective project repositories:
-- [AgentPipe Issues](https://github.com/kevinelliott/agentpipe/issues)
+- [AgentPipe Issues](https://github.com/shawkym/agentpipe/issues)
 
 For tap-specific issues:
-- [Tap Issues](https://github.com/kevinelliott/homebrew-tap/issues)
+- [Tap Issues](https://github.com/shawkym/homebrew-tap/issues)
 EOF
 
 # Commit and push
@@ -136,7 +136,7 @@ echo "   shasum -a 256 dist/*.tar.gz"
 echo "   Edit $TAP_DIR/Formula/agentpipe.rb with the hashes"
 echo ""
 echo "3. Test the tap:"
-echo "   brew tap kevinelliott/tap"
+echo "   brew tap shawkym/tap"
 echo "   brew install agentpipe"
 echo ""
 echo "📚 Full instructions: $AGENTPIPE_DIR/HOMEBREW_TAP_SETUP.md"

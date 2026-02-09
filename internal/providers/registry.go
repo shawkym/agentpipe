@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kevinelliott/agentpipe/pkg/log"
+	"github.com/shawkym/agentpipe/pkg/log"
 )
 
 var (

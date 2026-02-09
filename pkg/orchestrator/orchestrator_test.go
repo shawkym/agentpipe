@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/internal/bridge"
-	"github.com/kevinelliott/agentpipe/pkg/agent"
-	"github.com/kevinelliott/agentpipe/pkg/config"
+	"github.com/shawkym/agentpipe/internal/bridge"
+	"github.com/shawkym/agentpipe/pkg/agent"
+	"github.com/shawkym/agentpipe/pkg/config"
 )
 
 // MockAgent is a test double for agent.Agent

@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/kevinelliott/agentpipe/pkg/agent"
+	"github.com/shawkym/agentpipe/pkg/agent"
 )
 
 // TestNewChain tests creating a new middleware chain

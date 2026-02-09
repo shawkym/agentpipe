@@ -75,4 +75,4 @@ jobs:
       - name: Get release URL
         run: |
           echo "Once complete, the release will be available at:"
-          echo "https://github.com/kevinelliott/agentpipe/releases/tag/${{ inputs.version }}"
+          echo "https://github.com/shawkym/agentpipe/releases/tag/${{ inputs.version }}"

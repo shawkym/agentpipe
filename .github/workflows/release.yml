@@ -71,9 +71,9 @@ jobs:
         run: |
           COMMIT_HASH=$(git rev-parse --short HEAD)
           BUILD_DATE=$(date -u '+%Y-%m-%d_%H:%M:%S')
-          go build -ldflags "-X github.com/kevinelliott/agentpipe/internal/version.Version=${{ steps.get_version.outputs.VERSION }} \
-            -X github.com/kevinelliott/agentpipe/internal/version.CommitHash=${COMMIT_HASH} \
-            -X github.com/kevinelliott/agentpipe/internal/version.BuildDate=${BUILD_DATE} -s -w" \
+          go build -ldflags "-X github.com/shawkym/agentpipe/internal/version.Version=${{ steps.get_version.outputs.VERSION }} \
+            -X github.com/shawkym/agentpipe/internal/version.CommitHash=${COMMIT_HASH} \
+            -X github.com/shawkym/agentpipe/internal/version.BuildDate=${BUILD_DATE} -s -w" \
             -o agentpipe_${{ matrix.name }}${{ matrix.ext }} .
 
       - name: Create archive
@@ -137,7 +137,7 @@ jobs:
           
           ### Homebrew (macOS/Linux)
           \`\`\`bash
-          brew tap kevinelliott/tap
+          brew tap shawkym/tap
           brew install agentpipe
           \`\`\`
           
@@ -146,11 +146,11 @@ jobs:
           
           ### Using Go
           \`\`\`bash
-          go install github.com/kevinelliott/agentpipe@${{ steps.get_version.outputs.VERSION }}
+          go install github.com/shawkym/agentpipe@${{ steps.get_version.outputs.VERSION }}
           \`\`\`
           
           ## What's Changed
-          See the [full changelog](https://github.com/kevinelliott/agentpipe/compare/$(git describe --tags --abbrev=0 HEAD^)...${{ steps.get_version.outputs.VERSION }})
+          See the [full changelog](https://github.com/shawkym/agentpipe/compare/$(git describe --tags --abbrev=0 HEAD^)...${{ steps.get_version.outputs.VERSION }})
           
           ## Checksums
           \`\`\`
@@ -195,7 +195,7 @@ jobs:
         uses: actions/checkout@v6
         continue-on-error: true
         with:
-          repository: kevinelliott/homebrew-tap
+          repository: shawkym/homebrew-tap
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           path: homebrew-tap
 
@@ -208,7 +208,7 @@ jobs:
       - name: Download checksums
         run: |
           curl -L -o checksums.txt \
-            https://github.com/kevinelliott/agentpipe/releases/download/${{ steps.get_version.outputs.VERSION }}/checksums.txt
+            https://github.com/shawkym/agentpipe/releases/download/${{ steps.get_version.outputs.VERSION }}/checksums.txt
           cat checksums.txt
 
       - name: Update formula
@@ -225,29 +225,29 @@ jobs:
           cat > Formula/agentpipe.rb << EOF
           class Agentpipe < Formula
             desc "Orchestrate conversations between multiple AI CLI agents"
-            homepage "https://github.com/kevinelliott/agentpipe"
+            homepage "https://github.com/shawkym/agentpipe"
             version "${{ steps.get_version.outputs.VERSION_WITHOUT_V }}"
             license "MIT"
           
             if OS.mac?
               if Hardware::CPU.arm?
-                url "https://github.com/kevinelliott/agentpipe/releases/download/${{ steps.get_version.outputs.VERSION }}/agentpipe_darwin_arm64.tar.gz"
+                url "https://github.com/shawkym/agentpipe/releases/download/${{ steps.get_version.outputs.VERSION }}/agentpipe_darwin_arm64.tar.gz"
                 sha256 "${DARWIN_ARM64_SHA}"
               else
-                url "https://github.com/kevinelliott/agentpipe/releases/download/${{ steps.get_version.outputs.VERSION }}/agentpipe_darwin_amd64.tar.gz"
+                url "https://github.com/shawkym/agentpipe/releases/download/${{ steps.get_version.outputs.VERSION }}/agentpipe_darwin_amd64.tar.gz"
                 sha256 "${DARWIN_AMD64_SHA}"
               end
             elsif OS.linux?
               if Hardware::CPU.arm?
-                url "https://github.com/kevinelliott/agentpipe/releases/download/${{ steps.get_version.outputs.VERSION }}/agentpipe_linux_arm64.tar.gz"
+                url "https://github.com/shawkym/agentpipe/releases/download/${{ steps.get_version.outputs.VERSION }}/agentpipe_linux_arm64.tar.gz"
                 sha256 "${LINUX_ARM64_SHA}"
               else
-                url "https://github.com/kevinelliott/agentpipe/releases/download/${{ steps.get_version.outputs.VERSION }}/agentpipe_linux_amd64.tar.gz"
+                url "https://github.com/shawkym/agentpipe/releases/download/${{ steps.get_version.outputs.VERSION }}/agentpipe_linux_amd64.tar.gz"
                 sha256 "${LINUX_AMD64_SHA}"
               end
             end
           
-            head "https://github.com/kevinelliott/agentpipe.git", branch: "main"
+            head "https://github.com/shawkym/agentpipe.git", branch: "main"
             depends_on "go" => :build if build.head?
           
             def install

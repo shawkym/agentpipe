@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kevinelliott/agentpipe/internal/registry"
+	"github.com/shawkym/agentpipe/internal/registry"
 )
 
 var (

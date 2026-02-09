@@ -11,9 +11,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/kevinelliott/agentpipe/internal/bridge"
-	"github.com/kevinelliott/agentpipe/internal/version"
-	"github.com/kevinelliott/agentpipe/pkg/log"
+	"github.com/shawkym/agentpipe/internal/bridge"
+	"github.com/shawkym/agentpipe/internal/version"
+	"github.com/shawkym/agentpipe/pkg/log"
 )
 
 var (

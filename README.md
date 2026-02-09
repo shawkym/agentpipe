@@ -2,13 +2,13 @@
 
 ![AgentPipe Logo](screenshots/agentpipe-logo.png)
 
-[![CI](https://github.com/kevinelliott/agentpipe/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/kevinelliott/agentpipe/actions/workflows/test.yml)
+[![CI](https://github.com/shawkym/agentpipe/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/shawkym/agentpipe/actions/workflows/test.yml)
 [![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go)](https://go.dev/)
-[![Release](https://img.shields.io/github/v/release/kevinelliott/agentpipe?color=success)](https://github.com/kevinelliott/agentpipe/releases)
-[![License](https://img.shields.io/github/license/kevinelliott/agentpipe?color=blue)](https://github.com/kevinelliott/agentpipe/blob/main/LICENSE)
-[![Go Report Card](https://goreportcard.com/badge/github.com/kevinelliott/agentpipe)](https://goreportcard.com/report/github.com/kevinelliott/agentpipe)
-[![Downloads](https://img.shields.io/github/downloads/kevinelliott/agentpipe/total?color=brightgreen)](https://github.com/kevinelliott/agentpipe/releases)
-[![GitHub Stars](https://img.shields.io/github/stars/kevinelliott/agentpipe?color=yellow&logo=github)](https://github.com/kevinelliott/agentpipe)
+[![Release](https://img.shields.io/github/v/release/shawkym/agentpipe?color=success)](https://github.com/shawkym/agentpipe/releases)
+[![License](https://img.shields.io/github/license/shawkym/agentpipe?color=blue)](https://github.com/shawkym/agentpipe/blob/main/LICENSE)
+[![Go Report Card](https://goreportcard.com/badge/github.com/shawkym/agentpipe)](https://goreportcard.com/report/github.com/shawkym/agentpipe)
+[![Downloads](https://img.shields.io/github/downloads/shawkym/agentpipe/total?color=brightgreen)](https://github.com/shawkym/agentpipe/releases)
+[![GitHub Stars](https://img.shields.io/github/stars/shawkym/agentpipe?color=yellow&logo=github)](https://github.com/shawkym/agentpipe)
 
 AgentPipe is a powerful CLI and TUI application that orchestrates conversations between multiple AI agents. It allows different AI CLI tools (like Claude, Cursor, Gemini, Qwen, Ollama) to communicate with each other in a shared "room", creating dynamic multi-agent conversations with real-time metrics, cost tracking, and interactive user participation.
 
@@ -52,6 +52,7 @@ All agents now use a **standardized interaction pattern** with structured three-
   - `reactive`: Agents respond based on conversation dynamics
   - `free-form`: Agents participate freely as they see fit
 - **Flexible Configuration**: Use command-line flags or YAML configuration files
+- **Matrix/Synapse Integration**: Map agents to Matrix users, mirror conversations to a room, and accept live input from the room
 
 ### Enhanced TUI Interface
 - Multi-panel layout with dedicated sections for agents, chat, stats, and config
@@ -94,6 +95,39 @@ All agents now use a **standardized interaction pattern** with structured three-
 - **Health Checks**: Automatic agent health verification before conversations
 - **Agent Detection**: Built-in doctor command to check installed AI CLIs
 - **Customizable Agents**: Configure prompts, models, and behaviors for each agent
+
+### Matrix (Synapse) Room Integration
+AgentPipe can map each agent to a Matrix user on your self-hosted Synapse server, post all agent messages into a shared room, and ingest live input from that room into the conversation.
+
+**Example configuration:**
+
+```yaml
+matrix:
+  enabled: true
+  homeserver: "https://matrix.example.com"
+  room: "!roomid:example.com" # or a room alias like "#agents:example.com"
+  listener:
+    user_id: "@agentpipe:example.com"
+    access_token: "YOUR_LISTENER_ACCESS_TOKEN"
+
+agents:
+  - id: claude-0
+    type: claude
+    name: Alice
+    matrix:
+      user_id: "@alice:example.com"
+      access_token: "ALICE_ACCESS_TOKEN"
+  - id: gemini-0
+    type: gemini
+    name: Bob
+    matrix:
+      user_id: "@bob:example.com"
+      access_token: "BOB_ACCESS_TOKEN"
+```
+
+Notes:
+- Each agent must have a unique Matrix user with an access token (or password).
+- The listener account receives room input and injects it into the conversation.
 
 ## What's New
 
@@ -152,26 +186,26 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history and release notes.
 ### Using Homebrew (macOS/Linux)
 
 ```bash
-brew tap kevinelliott/tap
+brew tap shawkym/tap
 brew install agentpipe
 ```
 
 ### Using the install script
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/kevinelliott/agentpipe/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/shawkym/agentpipe/main/install.sh | bash
 ```
 
 ### Using Go
 
 ```bash
-go install github.com/kevinelliott/agentpipe@latest
+go install github.com/shawkym/agentpipe@latest
 ```
 
 ### Build from source
 
 ```bash
-git clone https://github.com/kevinelliott/agentpipe.git
+git clone https://github.com/shawkym/agentpipe.git
 cd agentpipe
 
 # Build only
@@ -1065,7 +1099,7 @@ The TUI is divided into multiple panels:
 
 ```bash
 # Clone the repository
-git clone https://github.com/kevinelliott/agentpipe.git
+git clone https://github.com/shawkym/agentpipe.git
 cd agentpipe
 
 # Build the binary
@@ -1145,8 +1179,8 @@ import (
     "strings"
     "time"
 
-    "github.com/kevinelliott/agentpipe/pkg/agent"
-    "github.com/kevinelliott/agentpipe/pkg/log"
+    "github.com/shawkym/agentpipe/pkg/agent"
+    "github.com/shawkym/agentpipe/pkg/log"
 )
 
 type MyAgent struct {
@@ -1465,7 +1499,7 @@ AgentPipe includes comprehensive Prometheus metrics for production monitoring:
 
 ```go
 // Enable metrics in your code
-import "github.com/kevinelliott/agentpipe/pkg/metrics"
+import "github.com/shawkym/agentpipe/pkg/metrics"
 
 // Start metrics server
 server := metrics.NewServer(metrics.ServerConfig{Addr: ":9090"})

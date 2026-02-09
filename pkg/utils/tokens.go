@@ -4,8 +4,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/kevinelliott/agentpipe/internal/providers"
-	"github.com/kevinelliott/agentpipe/pkg/log"
+	"github.com/shawkym/agentpipe/internal/providers"
+	"github.com/shawkym/agentpipe/pkg/log"
 )
 
 // EstimateTokens provides a rough estimation of token count

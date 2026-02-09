@@ -44,7 +44,7 @@ func CheckForUpdate() (bool, string, error) {
 
 	// Use the latest release redirect URL which doesn't count against rate limits
 	// This returns a 302 redirect to the actual release page
-	resp, err := client.Head("https://github.com/kevinelliott/agentpipe/releases/latest")
+	resp, err := client.Head("https://github.com/shawkym/agentpipe/releases/latest")
 	if err != nil {
 		return false, "", fmt.Errorf("failed to check for updates: %w", err)
 	}
@@ -58,7 +58,7 @@ func CheckForUpdate() (bool, string, error) {
 
 	// Extract version from the redirect URL
 	// The Location header will be something like:
-	// https://github.com/kevinelliott/agentpipe/releases/tag/v1.0.0
+	// https://github.com/shawkym/agentpipe/releases/tag/v1.0.0
 	location := resp.Header.Get("Location")
 	if location == "" {
 		return false, "", fmt.Errorf("no redirect location found")
@@ -90,7 +90,7 @@ func checkViaAPI() (bool, string, error) {
 	}
 
 	// Add a user agent to be a good citizen
-	req, err := http.NewRequest("GET", "https://api.github.com/repos/kevinelliott/agentpipe/releases/latest", nil)
+	req, err := http.NewRequest("GET", "https://api.github.com/repos/shawkym/agentpipe/releases/latest", nil)
 	if err != nil {
 		return false, "", err
 	}

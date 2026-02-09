@@ -1,0 +1,36 @@
+version: "1.0"
+
+matrix:
+  enabled: true
+  homeserver: "https://matrix.example.com"
+  room: "!roomid:example.com" # or "#agents:example.com"
+  listener:
+    user_id: "@agentpipe:example.com"
+    access_token: "YOUR_LISTENER_ACCESS_TOKEN"
+
+orchestrator:
+  mode: "round-robin"
+  max_turns: 10
+  turn_timeout: 30s
+  response_delay: 1s
+  initial_prompt: "Discuss the rollout plan for the next release."
+
+logging:
+  enabled: true
+  log_format: "text"
+
+agents:
+  - id: claude-0
+    type: claude
+    name: Alice
+    model: "claude-sonnet-4.5"
+    matrix:
+      user_id: "@alice:example.com"
+      access_token: "ALICE_ACCESS_TOKEN"
+  - id: gemini-0
+    type: gemini
+    name: Bob
+    model: "gemini-1.5-pro"
+    matrix:
+      user_id: "@bob:example.com"
+      access_token: "BOB_ACCESS_TOKEN"

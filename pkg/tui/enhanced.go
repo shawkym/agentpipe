@@ -15,13 +15,14 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/rs/zerolog"
 
-	"github.com/kevinelliott/agentpipe/internal/branding"
-	"github.com/kevinelliott/agentpipe/internal/version"
-	"github.com/kevinelliott/agentpipe/pkg/agent"
-	"github.com/kevinelliott/agentpipe/pkg/config"
-	"github.com/kevinelliott/agentpipe/pkg/log"
-	"github.com/kevinelliott/agentpipe/pkg/logger"
-	"github.com/kevinelliott/agentpipe/pkg/orchestrator"
+	"github.com/shawkym/agentpipe/internal/branding"
+	"github.com/shawkym/agentpipe/internal/matrix"
+	"github.com/shawkym/agentpipe/internal/version"
+	"github.com/shawkym/agentpipe/pkg/agent"
+	"github.com/shawkym/agentpipe/pkg/config"
+	"github.com/shawkym/agentpipe/pkg/log"
+	"github.com/shawkym/agentpipe/pkg/logger"
+	"github.com/shawkym/agentpipe/pkg/orchestrator"
 )
 
 type panel int
@@ -339,6 +340,18 @@ func RunEnhanced(ctx context.Context, cfg *config.Config, agents []agent.Agent, 
 		} else {
 			orch.SetLogger(chatLogger)
 		}
+	}
+
+	// Set up Matrix (Synapse) integration if enabled
+	if cfg.Matrix.Enabled {
+		matrixBridge, err := matrix.NewBridge(cfg.Matrix, cfg.Agents)
+		if err != nil {
+			return fmt.Errorf("matrix setup failed: %w", err)
+		}
+		orch.AddMessageHook(matrixBridge.Send)
+		matrixBridge.Start(ctx, func(msg agent.Message) {
+			orch.InjectMessage(msg)
+		})
 	}
 
 	m := EnhancedModel{
@@ -1291,7 +1304,7 @@ func (m *EnhancedModel) renderLogo() string {
 	// Use the colored ASCII logo from branding package
 	logo := branding.ASCIILogo
 
-	versionInfo := fmt.Sprintf("%s // https://github.com/kevinelliott/agentpipe", version.Version)
+	versionInfo := fmt.Sprintf("%s // https://github.com/shawkym/agentpipe", version.Version)
 
 	content := lipgloss.JoinVertical(lipgloss.Center,
 		logo, // Already has color, no need to style it
@@ -1372,7 +1385,9 @@ func (m *EnhancedModel) sendUserMessage() tea.Cmd {
 			Role:      "user",
 		}
 
-		return messageUpdate{message: msg}
+		m.orch.InjectMessage(msg)
+
+		return nil
 	}
 }
 
@@ -1445,7 +1460,7 @@ func (w *messageWriter) Write(p []byte) (n int, err error) {
 					agentName = agentInfo
 				}
 
-				if agentName == "System" || agentName == "Error" || agentName == "Info" {
+				if agentName == "System" || agentName == "Error" || agentName == "Info" || agentName == "User" {
 					// Handle system messages immediately
 					var msg agent.Message
 					msg.Timestamp = time.Now().Unix()
@@ -1479,6 +1494,11 @@ func (w *messageWriter) Write(p []byte) (n int, err error) {
 						msg.AgentName = "Info"
 						msg.Content = "ℹ️ " + messageContent
 						msg.Role = "system"
+					} else if agentName == "User" {
+						msg.AgentID = "user"
+						msg.AgentName = "User"
+						msg.Content = messageContent
+						msg.Role = "user"
 					}
 
 					if msg.Content != "" {

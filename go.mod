@@ -1,4 +1,4 @@
-module github.com/kevinelliott/agentpipe
+module github.com/shawkym/agentpipe
 
 go 1.24.0
 

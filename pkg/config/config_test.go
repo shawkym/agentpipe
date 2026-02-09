@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/agent"
+	"github.com/shawkym/agentpipe/pkg/agent"
 )
 
 func TestNewDefaultConfig(t *testing.T) {

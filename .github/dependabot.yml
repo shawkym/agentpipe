@@ -9,7 +9,7 @@ updates:
       time: "05:00"
     open-pull-requests-limit: 10
     reviewers:
-      - "kevinelliott"
+      - "shawkym"
     labels:
       - "dependencies"
       - "go"
@@ -26,7 +26,7 @@ updates:
       time: "05:00"
     open-pull-requests-limit: 5
     reviewers:
-      - "kevinelliott"
+      - "shawkym"
     labels:
       - "dependencies"
       - "github-actions"

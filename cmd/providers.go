@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kevinelliott/agentpipe/internal/providers"
-	"github.com/kevinelliott/agentpipe/pkg/log"
+	"github.com/shawkym/agentpipe/internal/providers"
+	"github.com/shawkym/agentpipe/pkg/log"
 )
 
 var (

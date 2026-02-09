@@ -473,7 +473,7 @@ go install github.com/golang/mock/mockgen@latest
 mockgen -source=pkg/agent/agent.go -destination=pkg/agent/mock_agent.go -package=agent
 
 # Use in tests
-import "github.com/kevinelliott/agentpipe/pkg/agent"
+import "github.com/shawkym/agentpipe/pkg/agent"
 
 mockCtrl := gomock.NewController(t)
 defer mockCtrl.Finish()

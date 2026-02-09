@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/internal/providers"
-	"github.com/kevinelliott/agentpipe/pkg/agent"
-	"github.com/kevinelliott/agentpipe/pkg/client"
-	"github.com/kevinelliott/agentpipe/pkg/log"
-	"github.com/kevinelliott/agentpipe/pkg/utils"
+	"github.com/shawkym/agentpipe/internal/providers"
+	"github.com/shawkym/agentpipe/pkg/agent"
+	"github.com/shawkym/agentpipe/pkg/client"
+	"github.com/shawkym/agentpipe/pkg/log"
+	"github.com/shawkym/agentpipe/pkg/utils"
 )
 
 // OpenRouterAgent is an API-based agent that uses OpenRouter's unified API.

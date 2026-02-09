@@ -39,8 +39,8 @@ agents:
 #
 # import (
 #     "context"
-#     "github.com/kevinelliott/agentpipe/pkg/metrics"
-#     "github.com/kevinelliott/agentpipe/pkg/orchestrator"
+#     "github.com/shawkym/agentpipe/pkg/metrics"
+#     "github.com/shawkym/agentpipe/pkg/orchestrator"
 # )
 #
 # func main() {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kevinelliott/agentpipe/pkg/ratelimit"
+	"github.com/shawkym/agentpipe/pkg/ratelimit"
 )
 
 // BenchmarkLimiterAllow benchmarks the Allow method (non-blocking check)

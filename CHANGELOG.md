@@ -1148,16 +1148,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Clean Message Display**: Smart consolidation of headers and proper paragraph formatting
 - **Cost Transparency**: See exactly how much each conversation costs
 
-[Unreleased]: https://github.com/kevinelliott/agentpipe/compare/v0.7.0...HEAD
-[0.7.0]: https://github.com/kevinelliott/agentpipe/compare/v0.6.0...v0.7.0
-[v0.2.1]: https://github.com/kevinelliott/agentpipe/compare/v0.2.0...v0.2.1
-[v0.2.0]: https://github.com/kevinelliott/agentpipe/compare/v0.1.5...v0.2.0
-[v0.1.5]: https://github.com/kevinelliott/agentpipe/compare/v0.1.4...v0.1.5
-[v0.1.4]: https://github.com/kevinelliott/agentpipe/compare/v0.1.3...v0.1.4
-[v0.1.3]: https://github.com/kevinelliott/agentpipe/compare/v0.1.1...v0.1.3
-[v0.1.1]: https://github.com/kevinelliott/agentpipe/compare/v0.1.0...v0.1.1
-[v0.1.0]: https://github.com/kevinelliott/agentpipe/compare/v0.0.16...v0.1.0
-[v0.0.16]: https://github.com/kevinelliott/agentpipe/compare/v0.0.15...v0.0.16
-[v0.0.15]: https://github.com/kevinelliott/agentpipe/compare/v0.0.9...v0.0.15
-[v0.0.9]: https://github.com/kevinelliott/agentpipe/compare/v0.0.8...v0.0.9
-[v0.0.8]: https://github.com/kevinelliott/agentpipe/releases/tag/v0.0.8
+[Unreleased]: https://github.com/shawkym/agentpipe/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/shawkym/agentpipe/compare/v0.6.0...v0.7.0
+[v0.2.1]: https://github.com/shawkym/agentpipe/compare/v0.2.0...v0.2.1
+[v0.2.0]: https://github.com/shawkym/agentpipe/compare/v0.1.5...v0.2.0
+[v0.1.5]: https://github.com/shawkym/agentpipe/compare/v0.1.4...v0.1.5
+[v0.1.4]: https://github.com/shawkym/agentpipe/compare/v0.1.3...v0.1.4
+[v0.1.3]: https://github.com/shawkym/agentpipe/compare/v0.1.1...v0.1.3
+[v0.1.1]: https://github.com/shawkym/agentpipe/compare/v0.1.0...v0.1.1
+[v0.1.0]: https://github.com/shawkym/agentpipe/compare/v0.0.16...v0.1.0
+[v0.0.16]: https://github.com/shawkym/agentpipe/compare/v0.0.15...v0.0.16
+[v0.0.15]: https://github.com/shawkym/agentpipe/compare/v0.0.9...v0.0.15
+[v0.0.9]: https://github.com/shawkym/agentpipe/compare/v0.0.8...v0.0.9
+[v0.0.8]: https://github.com/shawkym/agentpipe/releases/tag/v0.0.8
