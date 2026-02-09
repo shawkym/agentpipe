@@ -430,6 +430,7 @@ func TestValidateAgentType(t *testing.T) {
 		{"valid claude", "claude", false},
 		{"valid gemini", "gemini", false},
 		{"valid openrouter", "openrouter", false},
+		{"valid api", "api", false},
 		{"valid kimi", "kimi", false},
 		{"empty type", "", true},
 		{"unknown type", "nonexistent", true},
@@ -458,6 +459,8 @@ func TestValidateModelForAgent(t *testing.T) {
 		{"claude without model", "claude", "", false, ""},
 		{"gemini with model", "gemini", "gemini-2.5-pro", false, ""},
 		{"openrouter with model", "openrouter", "anthropic/claude-sonnet-4-5", false, ""},
+		{"api with model", "api", "gpt-4o", false, ""},
+		{"api without model", "api", "", false, ""},
 
 		// Agents that require model
 		{"openrouter without model", "openrouter", "", true, "requires model specification"},

@@ -54,10 +54,14 @@ var agentModelSupport = map[string]ModelSupport{
 		Required:  false,
 	},
 
-	// API agents that require model
+	// API agents
 	"openrouter": {
 		Supported: true,
 		Required:  true,
+	},
+	"api": {
+		Supported: true,
+		Required:  false,
 	},
 
 	// CLI agents without --model support

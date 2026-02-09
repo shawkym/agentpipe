@@ -25,7 +25,6 @@ func TestOpenRouterAgent_Initialize(t *testing.T) {
 	tests := []struct {
 		name        string
 		config      agent.AgentConfig
-		apiKey      string
 		shouldError bool
 		errorMsg    string
 	}{
@@ -37,8 +36,8 @@ func TestOpenRouterAgent_Initialize(t *testing.T) {
 				Name:   "Test OpenRouter",
 				Model:  "anthropic/claude-sonnet-4-5",
 				Prompt: "You are a helpful assistant",
+				APIKey: "test-api-key",
 			},
-			apiKey:      "test-api-key",
 			shouldError: false,
 		},
 		{
@@ -50,9 +49,8 @@ func TestOpenRouterAgent_Initialize(t *testing.T) {
 				Model:  "gpt-3.5-turbo",
 				Prompt: "You are a helpful assistant",
 			},
-			apiKey:      "",
 			shouldError: true,
-			errorMsg:    "OPENROUTER_API_KEY",
+			errorMsg:    "openrouter api key",
 		},
 		{
 			name: "missing model",
@@ -62,7 +60,6 @@ func TestOpenRouterAgent_Initialize(t *testing.T) {
 				Name:   "Test OpenRouter",
 				Prompt: "You are a helpful assistant",
 			},
-			apiKey:      "test-api-key",
 			shouldError: true,
 			errorMsg:    "model must be specified",
 		},
@@ -70,13 +67,8 @@ func TestOpenRouterAgent_Initialize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Set up environment
-			if tt.apiKey != "" {
-				os.Setenv("OPENROUTER_API_KEY", tt.apiKey)
-				defer os.Unsetenv("OPENROUTER_API_KEY")
-			} else {
-				os.Unsetenv("OPENROUTER_API_KEY")
-			}
+			// Ensure env doesn't interfere with config-based tests
+			os.Unsetenv("OPENROUTER_API_KEY")
 
 			a := NewOpenRouterAgent()
 			err := a.Initialize(tt.config)

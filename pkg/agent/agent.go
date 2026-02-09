@@ -71,6 +71,10 @@ type AgentConfig struct {
 	RateLimitBurst int `yaml:"rate_limit_burst"`
 	// CustomSettings allows agent-specific configuration options
 	CustomSettings map[string]interface{} `yaml:"custom_settings"`
+	// APIKey is an optional API key for API-based agents (overrides env vars)
+	APIKey string `yaml:"api_key"`
+	// APIEndpoint is an optional API endpoint for API-based agents
+	APIEndpoint string `yaml:"api_endpoint"`
 	// Matrix defines optional Matrix (Synapse) user mapping for this agent
 	Matrix MatrixUserConfig `yaml:"matrix"`
 }

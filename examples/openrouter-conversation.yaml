@@ -6,7 +6,7 @@ version: "1.0"
 # AI models from different providers in a single conversation.
 #
 # Requirements:
-#   - Set OPENROUTER_API_KEY environment variable
+#   - Set OPENROUTER_API_KEY environment variable (or set api_key per agent)
 #   - OpenRouter account with credits (https://openrouter.ai)
 #
 # Run with:
@@ -20,6 +20,7 @@ agents:
     prompt: "You are Claude, an AI assistant created by Anthropic. You are thoughtful, analytical, and enjoy deep discussions."
     announcement: "🤖 Claude has joined via OpenRouter API!"
     model: anthropic/claude-sonnet-4-5
+    # api_key: "your-openrouter-key" # optional per-agent override
     temperature: 0.7
     max_tokens: 500
 

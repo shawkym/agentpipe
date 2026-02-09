@@ -7,7 +7,7 @@ version: "1.0"
 # without installing its CLI tool.
 #
 # Requirements:
-#   - Set OPENROUTER_API_KEY environment variable
+#   - Set OPENROUTER_API_KEY environment variable (or set api_key per agent)
 #   - OpenRouter account with credits (https://openrouter.ai)
 #
 # Run with:
@@ -21,6 +21,7 @@ agents:
     prompt: "You are DeepSeek-R1, a powerful reasoning model. When solving problems, break down your thinking step by step and show your reasoning process clearly."
     announcement: "🧪 DeepSeek-R1 has joined via OpenRouter API!"
     model: deepseek/deepseek-r1
+    # api_key: "your-openrouter-key" # optional per-agent override
     temperature: 0.5
     max_tokens: 2000
 

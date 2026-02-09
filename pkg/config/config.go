@@ -193,6 +193,15 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("duplicate agent ID: %s", agent.ID)
 		}
 		agentIDs[agent.ID] = true
+
+		if agent.Type == "api" {
+			if agent.APIEndpoint == "" {
+				return fmt.Errorf("api_endpoint is required for api agent %s", agent.ID)
+			}
+			if agent.APIKey == "" {
+				return fmt.Errorf("api_key is required for api agent %s", agent.ID)
+			}
+		}
 	}
 
 	validModes := map[string]bool{

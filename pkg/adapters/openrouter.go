@@ -37,14 +37,17 @@ func (o *OpenRouterAgent) Initialize(config agent.AgentConfig) error {
 		return err
 	}
 
-	// Get API key from environment
-	apiKey := os.Getenv("OPENROUTER_API_KEY")
+	// Get API key from config or environment
+	apiKey := config.APIKey
+	if apiKey == "" {
+		apiKey = os.Getenv("OPENROUTER_API_KEY")
+	}
 	if apiKey == "" {
 		log.WithFields(map[string]interface{}{
 			"agent_id":   o.ID,
 			"agent_name": o.Name,
-		}).Error("OPENROUTER_API_KEY environment variable not set")
-		return fmt.Errorf("OPENROUTER_API_KEY environment variable is required")
+		}).Error("openrouter api key not set")
+		return fmt.Errorf("openrouter api key is required (set api_key or OPENROUTER_API_KEY)")
 	}
 	o.apiKey = apiKey
 
@@ -76,7 +79,11 @@ func (o *OpenRouterAgent) Initialize(config agent.AgentConfig) error {
 	}
 
 	// Create HTTP client
-	o.client = client.NewOpenAICompatClient("https://openrouter.ai/api/v1", apiKey)
+	endpoint := "https://openrouter.ai/api/v1"
+	if config.APIEndpoint != "" {
+		endpoint = config.APIEndpoint
+	}
+	o.client = client.NewOpenAICompatClient(endpoint, apiKey)
 
 	log.WithFields(map[string]interface{}{
 		"agent_id":   o.ID,
@@ -89,7 +96,7 @@ func (o *OpenRouterAgent) Initialize(config agent.AgentConfig) error {
 
 // IsAvailable checks if the OpenRouter API is available (API key is set).
 func (o *OpenRouterAgent) IsAvailable() bool {
-	return os.Getenv("OPENROUTER_API_KEY") != ""
+	return o.apiKey != "" || os.Getenv("OPENROUTER_API_KEY") != ""
 }
 
 // GetCLIVersion returns a version string indicating this is an API-based agent.

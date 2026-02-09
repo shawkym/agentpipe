@@ -39,6 +39,7 @@ All agents now use a **standardized interaction pattern** with structured three-
 - ✅ **Kimi** (Moonshot AI) - Interactive AI agent with advanced reasoning (interactive-first CLI)
 - ✅ **OpenCode** (SST) - AI coding agent built for the terminal (non-interactive run mode)
 - ✅ **OpenRouter** - Unified API access to 400+ models from multiple providers (API-based, no CLI required) 🌐 **API-based**
+- ✅ **Custom API (OpenAI-Compatible)** - Bring your own endpoint + token (API-based, no CLI required) 🌐 **API-based**
 - ✅ **Qoder** - Agentic coding platform with enhanced context engineering
 - ✅ **Qwen** (Alibaba) - Multilingual capabilities
 - ✅ **Ollama** - Local LLM support (planned)
@@ -140,7 +141,7 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history and release notes.
 🌐 **OpenRouter API Support - First API-Based Agent**:
 - **New Agent Type**: Direct API integration without CLI dependencies
   - Access 400+ models from multiple providers through a unified API
-  - No CLI installation required - just set `OPENROUTER_API_KEY`
+  - No CLI installation required - set `OPENROUTER_API_KEY` or per-agent `api_key`
   - Support for models from Anthropic, OpenAI, Google, DeepSeek, and more
   - Real-time token usage and accurate cost tracking from API responses
   - Streaming and non-streaming message support
@@ -705,7 +706,7 @@ OpenRouter provides unified API access to 400+ models from multiple providers wi
 **Setup:**
 
 1. **Get an API Key**: Sign up at [openrouter.ai](https://openrouter.ai) and obtain your API key
-2. **Set Environment Variable**:
+2. **Set Environment Variable** (optional if you set `api_key` per agent):
    ```bash
    export OPENROUTER_API_KEY=your-api-key-here
    ```
@@ -718,6 +719,7 @@ OpenRouter provides unified API access to 400+ models from multiple providers wi
        type: openrouter
        name: "Claude via OpenRouter"
        model: anthropic/claude-sonnet-4-5
+       api_key: "your-openrouter-key" # optional per-agent override
        prompt: "You are a helpful assistant"
        temperature: 0.7
        max_tokens: 1000
@@ -751,6 +753,29 @@ OpenRouter provides unified API access to 400+ models from multiple providers wi
 - Production deployments with consistent API access
 - Cross-provider comparisons in single conversations
 - Access to models not available via CLI
+
+### Custom API Agents (OpenAI-Compatible)
+
+You can define a custom API agent using only an API endpoint and token. This works with any OpenAI-compatible `/chat/completions` endpoint (including self-hosted gateways).
+
+```yaml
+agents:
+  - id: custom-api
+    type: api
+    name: "Custom API Agent"
+    api_endpoint: "https://your-api.example.com/v1"
+    api_key: "YOUR_API_TOKEN"
+    # model is optional; defaults to "auto"
+    # model: "your-model-id"
+    prompt: "You are a helpful assistant"
+```
+
+Notes:
+- If your endpoint requires a model, set `model` explicitly.
+- Cost estimates require the model to be present in the provider registry.
+
+Example:
+- `examples/custom-api-agent.yaml` - Custom OpenAI-compatible endpoint
 
 ### `agentpipe agents`
 

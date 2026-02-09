@@ -1,0 +1,32 @@
+version: "1.0"
+
+# Custom API Agent Example
+#
+# This example shows how to configure a custom OpenAI-compatible API endpoint.
+#
+# Requirements:
+#   - An OpenAI-compatible /chat/completions endpoint
+#   - An API token for that endpoint
+
+agents:
+  - id: custom-api
+    type: api
+    name: "Custom API Agent"
+    api_endpoint: "https://your-api.example.com/v1"
+    api_key: "YOUR_API_TOKEN"
+    # model is optional; defaults to "auto"
+    # model: "your-model-id"
+    prompt: "You are a helpful assistant."
+    temperature: 0.7
+    max_tokens: 800
+
+orchestrator:
+  mode: round-robin
+  max_turns: 5
+  turn_timeout: 30s
+  response_delay: 1s
+  initial_prompt: "Summarize the key risks in our upcoming deployment."
+
+logging:
+  enabled: true
+  show_metrics: true
