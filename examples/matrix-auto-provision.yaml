@@ -2,6 +2,7 @@ version: "1.0"
 
 matrix:
   enabled: true
+  # Optional; if MATRIX_ADMIN_TOKEN is set, auto-provisioning is enabled by default
   auto_provision: true
   # Optional; defaults to http://localhost:8008
   homeserver: "http://localhost:8008"
@@ -11,7 +12,7 @@ matrix:
   room: ""
   # Required for auto-provisioning
   admin_access_token: "YOUR_SYNAPSE_ADMIN_TOKEN"
-  # Optional cleanup controls
+  # Optional cleanup controls (default: remove users, do not erase chats)
   cleanup: true
   erase_on_cleanup: false
 

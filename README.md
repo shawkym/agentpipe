@@ -131,12 +131,12 @@ Notes:
 - The listener account receives room input and injects it into the conversation.
 
 #### Auto-Provisioned Matrix Users (No Per-Agent Config)
-If you want AgentPipe to create temporary Matrix users for each agent automatically, enable auto-provisioning and provide a Synapse admin token. AgentPipe will create users at startup, generate logins/tokens, and deactivate them on shutdown.
+If you want AgentPipe to create temporary Matrix users for each agent automatically, provide a Synapse admin token. AgentPipe will create users at startup, generate logins/tokens, and deactivate them on shutdown. If `MATRIX_ADMIN_TOKEN` is set, auto-provisioning is enabled automatically.
 
 ```yaml
 matrix:
   enabled: true
-  auto_provision: true
+  auto_provision: true # optional when MATRIX_ADMIN_TOKEN is set
   # Optional; defaults to http://localhost:8008
   homeserver: "http://localhost:8008"
   # Optional; defaults to homeserver host

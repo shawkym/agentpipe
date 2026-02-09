@@ -237,22 +237,22 @@ func (c *Config) Validate() error {
 
 		if c.Matrix.AutoProvision || adminToken != "" {
 			if adminToken == "" {
-				return fmt.Errorf("matrix.admin_access_token or MATRIX_ADMIN_TOKEN is required when matrix auto_provision is enabled")
+				return fmt.Errorf("matrix.admin_access_token or MATRIX_ADMIN_TOKEN is required for auto-provisioning")
 			}
 		} else {
 			if c.Matrix.Homeserver == "" {
-				return fmt.Errorf("matrix.homeserver is required when matrix is enabled (or enable matrix.auto_provision)")
+				return fmt.Errorf("matrix.homeserver is required when matrix is enabled (or set MATRIX_ADMIN_TOKEN for auto-provisioning)")
 			}
 			if c.Matrix.Room == "" {
-				return fmt.Errorf("matrix.room is required when matrix is enabled (or enable matrix.auto_provision)")
+				return fmt.Errorf("matrix.room is required when matrix is enabled (or set MATRIX_ADMIN_TOKEN for auto-provisioning)")
 			}
 
 			for _, agentCfg := range c.Agents {
 				if agentCfg.Matrix.UserID == "" {
-					return fmt.Errorf("matrix user_id is required for agent %s when matrix is enabled (or enable matrix.auto_provision)", agentCfg.ID)
+					return fmt.Errorf("matrix user_id is required for agent %s when matrix is enabled (or set MATRIX_ADMIN_TOKEN for auto-provisioning)", agentCfg.ID)
 				}
 				if agentCfg.Matrix.AccessToken == "" && agentCfg.Matrix.Password == "" {
-					return fmt.Errorf("matrix access_token or password is required for agent %s when matrix is enabled (or enable matrix.auto_provision)", agentCfg.ID)
+					return fmt.Errorf("matrix access_token or password is required for agent %s when matrix is enabled (or set MATRIX_ADMIN_TOKEN for auto-provisioning)", agentCfg.ID)
 				}
 			}
 		}
@@ -322,6 +322,15 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Matrix.UserPrefix == "" {
 		c.Matrix.UserPrefix = "agentpipe"
+	}
+	if c.Matrix.AdminAccessToken == "" {
+		if env := os.Getenv("MATRIX_ADMIN_TOKEN"); env != "" {
+			c.Matrix.AdminAccessToken = env
+		}
+	}
+	if c.Matrix.AdminAccessToken != "" {
+		// Prefer auto-provisioning when admin token is available
+		c.Matrix.AutoProvision = true
 	}
 	if c.Matrix.Cleanup == nil {
 		c.Matrix.Cleanup = boolPtr(true)
